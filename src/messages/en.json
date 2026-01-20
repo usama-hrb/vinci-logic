@@ -1,0 +1,19 @@
+{
+  "hero": {
+    "badge": "Security Operations Platform",
+    "title": "Detection and response as code for modern security operations",
+    "description": "Implement deterministic workflows, triage alerts with agentic AI, and execute response logic directly where your data lives without vendor lock-in.",
+    "primaryCta": "Request demo",
+    "secondaryCta": "View docs",
+    "video": "See Vinci in action"
+  },
+  "nav": {
+    "product": "Product",
+    "solutions": "Solutions",
+    "resources": "Resources",
+    "docs": "Docs",
+    "pricing": "Pricing",
+    "login": "Login",
+    "demo": "Request Demo"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "hero": {
+    "badge": "Plateforme d’opérations de sécurité",
+    "title": "Détection et réponse en tant que code pour les SOC modernes",
+    "description": "Implémentez des workflows déterministes, triez les alertes avec une IA agentique et exécutez la réponse directement là où se trouvent vos données.",
+    "primaryCta": "Demander une démo",
+    "secondaryCta": "Voir la documentation",
+    "video": "Voir Vinci en action"
+  },
+  "nav": {
+    "product": "Produit",
+    "solutions": "Solutions",
+    "resources": "Ressources",
+    "docs": "Documentation",
+    "pricing": "Tarification",
+    "login": "Connexion",
+    "demo": "Demander une démo"
+  }
+}
