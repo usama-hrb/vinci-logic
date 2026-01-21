@@ -15,5 +15,51 @@
     "pricing": "Pricing",
     "login": "Login",
     "demo": "Request Demo"
+  },
+  "problem": {
+    "badge": "The SOC Reality",
+    "title": "Security teams are overwhelmed",
+    "subtitle": "Modern SOCs face challenges that legacy tools simply can't solve.",
+    "cards": {
+      "alertFatigue": {
+        "title": "Alert Fatigue",
+        "description": "Thousands of alerts daily, most false positives. Critical threats get lost in the noise."
+      },
+      "missedDetections": {
+        "title": "Missed Detections",
+        "description": "Static rules can't keep up with evolving threats. Attackers slip through the gaps."
+      },
+      "highCost": {
+        "title": "High Investigation Cost",
+        "description": "Manual triage consumes hours per incident. Resources drain on repetitive tasks."
+      },
+      "analystBurnout": {
+        "title": "Analyst Burnout",
+        "description": "Repetitive work and constant pressure lead to turnover and knowledge loss."
+      },
+      "fragileAutomation": {
+        "title": "Fragile Automation",
+        "description": "Brittle playbooks break silently. One change cascades into failures."
+      }
+    },
+    "bridge": "This is where Vinci Logic comes in."
+  },
+  "why": {
+    "why_title": "Why Vinci Logic?",
+    "why_subtitle": "A modern security operations platform built for scale, clarity, and control.",
+    "cards": {
+      "code": {
+        "title": "Detection & Response as Code",
+        "description": "Define, version, and deploy detections and response logic like software—consistent, auditable, and scalable."
+      },
+      "data": {
+        "title": "Runs Where Your Data Lives",
+        "description": "Execute detection logic directly on OpenSearch, ClickHouse, Spark, and more—no data duplication, no lock-in."
+      },
+      "workflow": {
+        "title": "Deterministic Workflows, AI Assistance",
+        "description": "Deterministic workflows handle incidents end-to-end, while AI assists triage, investigation, and response—reducing noise without losing control."
+      }
+    }
   }
 }

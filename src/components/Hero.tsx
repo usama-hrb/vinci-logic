@@ -28,7 +28,7 @@ export function Hero() {
         </FadeUp>
 
         <FadeUp delay={0.05}>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-tight font-brygada">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-tight">
             {t("title")}
           </h1>
         </FadeUp>

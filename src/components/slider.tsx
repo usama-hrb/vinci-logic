@@ -27,7 +27,7 @@ export default function Slider() {
     },
   });
   return (
-    <div className="relative mx-auto mt-20 max-w-400 ">
+    <div className="relative mx-auto my-15 max-w-400 ">
       {/* Left fade gradient */}
       <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-linear-to-r from-background to-transparent" />
       {/* Right fade gradient */}

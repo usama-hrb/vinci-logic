@@ -1,102 +1,92 @@
-"use client";
+import { useTranslations } from "next-intl";
+import { Code, Database, Workflow } from "lucide-react";
+import Image from "next/image";
 
 export function Why() {
+  const t = useTranslations("why");
+
+  const cards = [
+    {
+      key: "code",
+      icon: Code,
+      title: t("cards.code.title"),
+      description: t("cards.code.description"),
+    },
+    {
+      key: "data",
+      icon: Database,
+      title: t("cards.data.title"),
+      description: t("cards.data.description"),
+    },
+  ];
+
   return (
-    <section className="py-24">
+    <section className="">
       <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl font-brygada">
-            Why Vinci Logic?
+          <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+            {t("why_title")}
           </h2>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            A modern security operations platform built for scale, clarity, and
-            control.
+            {t("why_subtitle")}
           </p>
         </div>
 
-        {/* Cards Grid - 2 small on left, 1 big on right */}
+        {/* Cards */}
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Left column - 2 stacked cards */}
+          {/* Left column */}
           <div className="flex flex-col gap-6">
-            {[1, 2].map((card) => (
+            {cards.map(({ key, icon: Icon, title, description }) => (
               <div
-                key={card}
+                key={key}
                 className="relative rounded-2xl p-[1.5px] overflow-hidden"
               >
-                {/* Animated linear gradient border */}
-                <div
-                  className="absolute inset-0 bg-[linear-gradient(90deg,transparent,#872CE2,transparent)]"
-                  style={{
-                    animation: "shimmer 15s linear infinite",
-                  }}
-                />
-
-                {/* Card content */}
-                <div className="relative h-full min-h-50 rounded-2xl bg-card p-8">
-                  {/* Placeholder for icon */}
-                  <div className="mb-6 h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <div className="h-6 w-6 rounded bg-primary/30" />
-                  </div>
-
-                  {/* Placeholder for title */}
-                  <div className="h-6 w-3/4 rounded bg-muted mb-3" />
-
-                  {/* Placeholder for description */}
-                  <div className="space-y-2">
-                    <div className="h-4 w-full rounded bg-muted/60" />
-                    <div className="h-4 w-5/6 rounded bg-muted/60" />
+                <div className="absolute inset-0 shimmer bg-[linear-gradient(90deg,transparent,#872CE2,transparent)]" />
+                <div className="relative rounded-2xl bg-card p-8 overflow-hidden">
+                  {/* Background SVG Image */}
+                  <Image
+                    className="pointer-events-none object-cover opacity-[0.15]"
+                    src="/01.svg"
+                    alt=""
+                    fill
+                    aria-hidden="true"
+                  />
+                  <div className="relative z-10">
+                    <div className="mb-6 h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Icon className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">{title}</h3>
+                    <p className="text-muted-foreground">{description}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Right column - 1 big card */}
+          {/* Right column – big card */}
           <div className="relative rounded-2xl p-[1.5px] overflow-hidden">
-            {/* Animated linear gradient border */}
-            <div
-              className="absolute inset-0 bg-[linear-gradient(90deg,transparent,#872CE2,transparent)]"
-              style={{
-                animation: "shimmer 15s linear infinite",
-              }}
-            />
-
-            {/* Card content */}
-            <div className="relative h-full min-h-[424px] rounded-2xl bg-card p-8">
-              {/* Placeholder for icon */}
+            <div className="absolute inset-0 shimmer bg-[linear-gradient(90deg,transparent,#872CE2,transparent)]" />
+            <div className="relative rounded-2xl bg-card p-8 h-full">
+              <Image className="pointer-events-none object-cover opacity-[0.15]"
+                src="/01.svg"
+                alt=""
+                fill
+                aria-hidden="true"
+              />
               <div className="mb-6 h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                <div className="h-6 w-6 rounded bg-primary/30" />
+                <Workflow className="h-6 w-6 text-primary" />
               </div>
-
-              {/* Placeholder for title */}
-              <div className="h-6 w-3/4 rounded bg-muted mb-3" />
-
-              {/* Placeholder for description */}
-              <div className="space-y-2">
-                <div className="h-4 w-full rounded bg-muted/60" />
-                <div className="h-4 w-5/6 rounded bg-muted/60" />
-                <div className="h-4 w-4/6 rounded bg-muted/60" />
-              </div>
+              <h3 className="text-xl font-semibold mb-3">
+                {t("cards.workflow.title")}
+              </h3>
+              <p className="text-muted-foreground">
+                {t("cards.workflow.description")}
+              </p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Animation keyframes */}
-      <style jsx>{`
-        @keyframes shimmer {
-          0% {
-            background-position: -200% 0;
-          }
-          100% {
-            background-position: 200% 0;
-          }
-        }
-        div[style*="shimmer"] {
-          background-size: 200% 100%;
-        }
-      `}</style>
     </section>
   );
 }

@@ -15,5 +15,23 @@
     "pricing": "Tarification",
     "login": "Connexion",
     "demo": "Demander une démo"
+  },
+  "why": {
+    "why_title": "Pourquoi Vinci Logic ?",
+    "why_subtitle": "Une plateforme moderne d’opérations de sécurité, conçue pour l’échelle, la clarté et le contrôle.",
+    "cards": {
+      "code": {
+        "title": "Détection et réponse en tant que code",
+        "description": "Définissez, versionnez et déployez les règles de détection et de réponse comme du logiciel — cohérent, auditable et évolutif."
+      },
+      "data": {
+        "title": "S’exécute là où vivent vos données",
+        "description": "Exécutez la logique de détection directement sur OpenSearch, ClickHouse, Spark et plus — sans duplication ni dépendance."
+      },
+      "workflow": {
+        "title": "Workflows déterministes, assistance IA",
+        "description": "Des workflows déterministes gèrent les incidents de bout en bout, tandis que l’IA assiste la qualification, l’investigation et la réponse."
+      }
+    }
   }
 }
