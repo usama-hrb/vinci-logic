@@ -33,5 +33,25 @@
         "description": "Des workflows déterministes gèrent les incidents de bout en bout, tandis que l’IA assiste la qualification, l’investigation et la réponse."
       }
     }
+  },
+  "problems": {
+    "problems_title": "Security teams are overwhelmed",
+    "problems_subtitle": "Modern SOCs face challenges that legacy tools simply can't solve.",
+    "cards": {
+      "scale": {
+        "title": "Scale Breaks Legacy Architectures",
+        "description": "Alert volume and data growth exceed the limits of centralized ingestion and manual triage models."
+      },
+      "noise": {
+        "title": "Too Much Noise, Not Enough Signal",
+        "description": "Static rules generate excessive alerts, forcing teams to throttle detections and accept blind spots."
+      },
+      "automation": {
+        "title": "Automation Without Control Fails",
+        "description": "Brittle SOAR playbooks are complex to maintain and difficult to trust during high-risk incidents."
+      }
+    },
+    "problems_badge": "The SOC Reality",
+    "problems_header": "Lorem Ipsum is simply dummy text of the printing and typesetting industry."
   }
 }
