@@ -563,9 +563,8 @@ const MagicBento = ({
                       <FadeUp delay={0.4}>
                         <Cobe
                           variant="auto-rotation"
-                          baseColor="#C58CFF"
                           glowColor="#872CE2"
-                          opacity={0.8}
+                          opacity={0.9}
                         />
                       </FadeUp>
                     </div>

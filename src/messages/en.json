@@ -53,6 +53,31 @@
     },
     "problems_badge": "The SOC Reality",
     "problems_header": "Lorem Ipsum is simply dummy text of the printing and typesetting industry."
-    
+  },
+  "how": {
+    "how_title": "How Vinci Logic Works",
+    "how_subtitle": "Vinci Logic runs detections where my data lives, uses code + workflows, and helps analysts respond faster with AI  without taking control away.",
+    "cards": {
+      "step1": {
+        "badge": "Step 1",
+        "title": "Detection & Response as Code",
+        "description": "Define, version, and deploy detections and response logic like software consistent, auditable, and scalable."
+      },
+      "step2": {
+        "badge": "Step 2",
+        "title": "Runs Where Your Data Lives",
+        "description": "Execute detection logic directly on OpenSearch, ClickHouse, Spark, and more no data duplication, no lock-in."
+      },
+      "step3": {
+        "badge": "Step 3",
+        "title": "Global, Distributed by Design",
+        "description": "Run detections and response logic directly where your data lives across regions and environments without duplication or lock-in."
+      },
+      "step4": {
+        "badge": "Step 4",
+        "title": "Global, Distributed by Design",
+        "description": "Run detections and response logic directly where your data lives across regions and environments without duplication or lock-in."
+      }
+    }
   }
 }

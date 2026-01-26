@@ -3,6 +3,7 @@ import { Why } from "@/components/Why";
 import Link from "next/link";
 import Slider from "@/components/slider";
 import Problem from "@/components/Problem";
+import HowItWorks from "@/components/HowItWorks";
 
 export default function HomePage() {
   return (
@@ -11,6 +12,7 @@ export default function HomePage() {
       <Slider />
       <Problem />
       <Why />
+      <HowItWorks />
     </main>
   );
 }

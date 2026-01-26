@@ -23,7 +23,7 @@ export function Why() {
   ];
 
   return (
-    <section className="py-24">
+    <section className="relative py-24 border-b border-border/50">
       <div className="mx-auto max-w-6xl px-6">
         {/* Header */}
         <FadeUp delay={0.1}>
