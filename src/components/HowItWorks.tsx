@@ -5,8 +5,6 @@ import { ShineBorder } from "./ui/shine-border";
 import AnimatedBadge from "./ui/animated-badge";
 import Image from "next/image";
 import { Ripple } from "./ui/ripple";
-import { DotPattern } from "./ui/dot-pattern";
-import { InteractiveHoverButton } from "./ui/interactive-hover-button";
 
 export default function HowItWorks() {
   const t = useTranslations("how");
@@ -39,16 +37,53 @@ export default function HowItWorks() {
       title: t("cards.step4.title"),
       description: t("cards.step4.description"),
     },
+    {
+      key: "step5",
+      badge: t("cards.step5.badge"),
+      icon: Workflow,
+      title: t("cards.step5.title"),
+      description: t("cards.step5.description"),
+    },
   ];
 
   return (
     <section className="relative py-12 md:py-24">
+      {/* Gradient Background */}
+      {/* <div className="absolute inset-0 gradient-bg">
+        <svg xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="goo">
+              <feGaussianBlur
+                in="SourceGraphic"
+                stdDeviation="10"
+                result="blur"
+              />
+              <feColorMatrix
+                in="blur"
+                mode="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8"
+                result="goo"
+              />
+              <feBlend in="SourceGraphic" in2="goo" />
+            </filter>
+          </defs>
+        </svg>
+        <div className="gradients-container">
+          <div className="g1"></div>
+          <div className="g2"></div>
+          <div className="g3"></div>
+          <div className="g4"></div>
+          <div className="g5"></div>
+          <div className="interactive"></div>
+        </div>
+      </div> */}
+      {/* dotted background */}
       <div
         className="
-          pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[70%]
+          pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70%]
           bg-[radial-gradient(var(--color-border)_1px,transparent_1px)]
           bg-size-[16px_16px]
-          mask-[linear-gradient(to_top,black_0%,black_60%,transparent_100%)]
+          mask-[linear-gradient(to_bottom,black_0%,black_60%,transparent_100%)]
         "
       />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -70,16 +105,17 @@ export default function HowItWorks() {
         <div className="flex flex-col gap-6 backdrop-blur-2xl">
           {how.map(({ key, icon: Icon, title, description, badge }, index) => (
             <FadeUp key={key} delay={0.1 + index * 0.1} variant="slideRight">
-              <div className="group border border-border relative h-full flex flex-col bg-background/40 drop-shadow-2xl rounded-lg transition-all duration-500 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.1)] hover:-translate-y-0.5 bg-background/50">
+              <div className="group border border-border relative h-full flex flex-col bg-background/40 drop-shadow-2xl rounded-lg transition-all duration-500 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.1)] hover:-translate-y-0.5">
                 <ShineBorder
                   shineColor={["#855CF5", "#C091F0", "#8F38E7"]}
                   duration={18}
+                  className="opacity-80"
                 />
                 <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6 ">
                   {/* Content */}
                   <div className="flex-1 flex flex-col justify-between min-h-50 md:min-h-80 p-3 md:p-5 m-4 md:m-6">
                     <FadeUp delay={0.1}>
-                      <div className="inline-flex items-center rounded-full border border-border/50 bg-muted/20 px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-muted-foreground backdrop-blur-sm">
+                      <div className="inline-flex items-center rounded-full border border-border bg-muted/20 px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-muted-foreground backdrop-blur-sm">
                         <span className="mr-2 h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse" />
                         {badge}
                       </div>
@@ -92,7 +128,6 @@ export default function HowItWorks() {
                         <p className="text-sm md:text-[17px] text-muted-foreground leading-relaxed mt-2">
                           {description}
                         </p>
-
                       </FadeUp>
                     </div>
                   </div>

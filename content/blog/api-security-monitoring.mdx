@@ -1,0 +1,632 @@
+---
+title: API Security Monitoring and Protection
+description: Comprehensive guide to securing and monitoring APIs in your security operations
+author: Tom Wilson
+date: 2024-12-01
+---
+
+## The API Security Challenge
+
+APIs are the backbone of modern applications, but they're also a prime target for attackers.
+
+> **Stat**: API attacks increased by 681% in 2024, making API security critical for every SOC.
+
+## Common API Vulnerabilities
+
+### OWASP API Security Top 10
+
+```markdown
+1. **Broken Object Level Authorization** - Accessing others' objects
+2. **Broken Authentication** - Weak authentication mechanisms
+3. **Broken Object Property Level Authorization** - Mass assignment vulnerabilities
+4. **Unrestricted Resource Consumption** - No rate limiting
+5. **Broken Function Level Authorization** - Missing access controls
+6. **Unrestricted Access to Sensitive Business Flows** - Abuse of workflows
+7. **Server Side Request Forgery** - SSRF vulnerabilities
+8. **Security Misconfiguration** - Default configs, verbose errors
+9. **Improper Inventory Management** - Unknown/shadow APIs
+10. **Unsafe Consumption of APIs** - Trusting third-party APIs
+```
+
+## API Security Monitoring
+
+### Request Logging and Analysis
+
+```python
+from flask import Flask, request, g
+from functools import wraps
+import time
+import hashlib
+import json
+
+app = Flask(__name__)
+
+class APISecurityMonitor:
+    def __init__(self):
+        self.request_log = []
+        self.rate_limit_tracker = {}
+        self.suspicious_patterns = []
+
+    def log_request(self, request_data):
+        """Log API request for security analysis"""
+        log_entry = {
+            'timestamp': time.time(),
+            'method': request_data['method'],
+            'path': request_data['path'],
+            'source_ip': request_data['client_ip'],
+            'user_agent': request_data['user_agent'],
+            'user_id': request_data.get('user_id'),
+            'response_code': request_data.get('response_code'),
+            'response_time': request_data.get('response_time'),
+            'request_size': request_data.get('request_size'),
+            'response_size': request_data.get('response_size')
+        }
+
+        self.request_log.append(log_entry)
+
+        # Analyze for suspicious patterns
+        self.analyze_request(log_entry)
+
+        return log_entry
+
+    def analyze_request(self, log_entry):
+        """Analyze request for security threats"""
+        alerts = []
+
+        # Check for SQL injection patterns
+        if self.detect_sql_injection(log_entry['path']):
+            alerts.append({
+                'type': 'sql_injection_attempt',
+                'severity': 'high',
+                'details': log_entry
+            })
+
+        # Check for excessive requests (rate limiting)
+        if self.check_rate_limit(log_entry['source_ip']):
+            alerts.append({
+                'type': 'rate_limit_exceeded',
+                'severity': 'medium',
+                'details': log_entry
+            })
+
+        # Check for authentication failures
+        if log_entry['response_code'] == 401:
+            self.track_auth_failure(log_entry['source_ip'])
+
+        return alerts
+
+    @staticmethod
+    def detect_sql_injection(path):
+        """Detect SQL injection patterns"""
+        import re
+        sql_patterns = [
+            r"(\bunion\b.*\bselect\b)",
+            r"(\bor\b.*=.*)",
+            r"(--|#|\/\*)",
+            r"(\bexec\b|\bexecute\b)",
+            r"(\bdrop\b.*\btable\b)"
+        ]
+
+        for pattern in sql_patterns:
+            if re.search(pattern, path.lower()):
+                return True
+        return False
+
+# Security decorator
+def monitor_api_security(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Record start time
+        g.start_time = time.time()
+
+        # Execute endpoint
+        response = f(*args, **kwargs)
+
+        # Log request
+        monitor.log_request({
+            'method': request.method,
+            'path': request.path,
+            'client_ip': request.remote_addr,
+            'user_agent': request.user_agent.string,
+            'user_id': g.get('user_id'),
+            'response_code': response.status_code,
+            'response_time': time.time() - g.start_time,
+            'request_size': request.content_length,
+            'response_size': len(response.data) if response.data else 0
+        })
+
+        return response
+
+    return decorated_function
+
+# Initialize monitor
+monitor = APISecurityMonitor()
+
+# Protected endpoint
+@app.route('/api/users/<int:user_id>')
+@monitor_api_security
+def get_user(user_id):
+    # Endpoint logic
+    return {'user_id': user_id}
+```
+
+### Rate Limiting Implementation
+
+```python
+from datetime import datetime, timedelta
+from collections import defaultdict
+
+class RateLimiter:
+    def __init__(self, max_requests=100, window_seconds=60):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+
+    def is_allowed(self, client_id):
+        """Check if request is within rate limit"""
+        now = datetime.now()
+        window_start = now - timedelta(seconds=self.window_seconds)
+
+        # Remove old requests
+        self.requests[client_id] = [
+            req_time for req_time in self.requests[client_id]
+            if req_time > window_start
+        ]
+
+        # Check limit
+        if len(self.requests[client_id]) >= self.max_requests:
+            return False
+
+        # Record request
+        self.requests[client_id].append(now)
+        return True
+
+    def get_remaining(self, client_id):
+        """Get remaining requests for client"""
+        current_count = len(self.requests.get(client_id, []))
+        return max(0, self.max_requests - current_count)
+
+# Middleware
+from flask import jsonify
+
+rate_limiter = RateLimiter(max_requests=100, window_seconds=60)
+
+@app.before_request
+def check_rate_limit():
+    client_id = request.remote_addr
+
+    if not rate_limiter.is_allowed(client_id):
+        response = jsonify({
+            'error': 'Rate limit exceeded',
+            'retry_after': 60
+        })
+        response.status_code = 429
+        response.headers['Retry-After'] = '60'
+        return response
+```
+
+> **Note**: Implement tiered rate limits based on user authentication level and API endpoint sensitivity.
+
+### Authentication and Authorization
+
+```python
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
+
+class APIAuthManager:
+    def __init__(self, secret_key):
+        self.secret_key = secret_key
+        self.revoked_tokens = set()
+
+    def generate_token(self, user_id, role, expires_in=3600):
+        """Generate JWT token"""
+        payload = {
+            'user_id': user_id,
+            'role': role,
+            'exp': datetime.utcnow() + timedelta(seconds=expires_in),
+            'iat': datetime.utcnow(),
+            'jti': self.generate_token_id()
+        }
+
+        return jwt.encode(payload, self.secret_key, algorithm='HS256')
+
+    def verify_token(self, token):
+        """Verify JWT token"""
+        try:
+            payload = jwt.decode(token, self.secret_key, algorithms=['HS256'])
+
+            # Check if revoked
+            if payload['jti'] in self.revoked_tokens:
+                return {'valid': False, 'reason': 'token_revoked'}
+
+            return {'valid': True, 'payload': payload}
+
+        except jwt.ExpiredSignatureError:
+            return {'valid': False, 'reason': 'token_expired'}
+        except jwt.InvalidTokenError:
+            return {'valid': False, 'reason': 'invalid_token'}
+
+    def revoke_token(self, token):
+        """Revoke a token"""
+        try:
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=['HS256'],
+                options={'verify_exp': False}
+            )
+            self.revoked_tokens.add(payload['jti'])
+            return True
+        except:
+            return False
+
+# Authentication decorator
+auth_manager = APIAuthManager('your-secret-key')
+
+def require_auth(required_role=None):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Get token from header
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('Bearer '):
+                return jsonify({'error': 'Missing authorization'}), 401
+
+            token = auth_header.split(' ')[1]
+
+            # Verify token
+            result = auth_manager.verify_token(token)
+            if not result['valid']:
+                return jsonify({'error': result['reason']}), 401
+
+            # Check role
+            if required_role and result['payload']['role'] != required_role:
+                return jsonify({'error': 'Insufficient permissions'}), 403
+
+            # Store user info in context
+            g.user_id = result['payload']['user_id']
+            g.user_role = result['payload']['role']
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+    return decorator
+
+# Protected endpoint
+@app.route('/api/admin/users')
+@require_auth(required_role='admin')
+def list_users():
+    # Only admins can access
+    return jsonify({'users': []})
+```
+
+## API Threat Detection
+
+### Anomaly Detection
+
+```python
+import numpy as np
+from sklearn.ensemble import IsolationForest
+
+class APIAnomalyDetector:
+    def __init__(self):
+        self.model = IsolationForest(contamination=0.1, random_state=42)
+        self.feature_scaler = None
+
+    def extract_features(self, api_request):
+        """Extract features from API request"""
+        return {
+            'hour_of_day': api_request['timestamp'].hour,
+            'day_of_week': api_request['timestamp'].weekday(),
+            'request_size': api_request['request_size'],
+            'response_time': api_request['response_time'],
+            'endpoint_hash': hash(api_request['endpoint']) % 1000,
+            'user_activity_level': self.get_user_activity(api_request['user_id']),
+            'is_new_endpoint': int(self.is_new_endpoint(api_request['user_id'], api_request['endpoint']))
+        }
+
+    def train(self, historical_requests):
+        """Train anomaly detection model"""
+        features = [self.extract_features(req) for req in historical_requests]
+        X = np.array([list(f.values()) for f in features])
+
+        self.model.fit(X)
+
+    def detect_anomaly(self, api_request):
+        """Detect if request is anomalous"""
+        features = self.extract_features(api_request)
+        X = np.array([list(features.values())])
+
+        prediction = self.model.predict(X)[0]
+        score = self.model.score_samples(X)[0]
+
+        return {
+            'is_anomaly': prediction == -1,
+            'anomaly_score': abs(score),
+            'risk_level': self.calculate_risk_level(score)
+        }
+```
+
+### Attack Pattern Detection
+
+```typescript
+interface APIRequest {
+  timestamp: Date;
+  endpoint: string;
+  method: string;
+  sourceIP: string;
+  userAgent: string;
+  payload?: any;
+}
+
+class APIAttackDetector {
+  private requestHistory: Map<string, APIRequest[]> = new Map();
+
+  detectSQLInjection(request: APIRequest): boolean {
+    const sqlPatterns = [
+      /(\bunion\b.*\bselect\b)/i,
+      /(\bor\b\s*\d+\s*=\s*\d+)/i,
+      /(--|#|\/\*)/,
+      /(\bexec\b|\bexecute\b)/i,
+      /(\bdrop\b.*\btable\b)/i,
+      /(\binsert\b.*\binto\b)/i,
+    ];
+
+    const searchString = JSON.stringify(request.payload) + request.endpoint;
+
+    return sqlPatterns.some((pattern) => pattern.test(searchString));
+  }
+
+  detectXSS(request: APIRequest): boolean {
+    const xssPatterns = [
+      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+      /javascript:/gi,
+      /on\w+\s*=/gi,
+      /<iframe/gi,
+    ];
+
+    const searchString = JSON.stringify(request.payload);
+
+    return xssPatterns.some((pattern) => pattern.test(searchString));
+  }
+
+  detectBruteForce(sourceIP: string, endpoint: string): boolean {
+    const key = `${sourceIP}:${endpoint}`;
+    const requests = this.requestHistory.get(key) || [];
+
+    // Check for >10 requests in last minute
+    const oneMinuteAgo = new Date(Date.now() - 60000);
+    const recentRequests = requests.filter((r) => r.timestamp > oneMinuteAgo);
+
+    return recentRequests.length > 10;
+  }
+
+  detectParameterTampering(request: APIRequest): boolean {
+    // Check for common tampering patterns
+    const payload = JSON.stringify(request.payload);
+
+    const tamperingIndicators = [
+      /['"]\s*:\s*true/i, // Boolean manipulation
+      /is_admin|role|permission/i, // Privilege escalation
+      /price\s*:\s*0/i, // Price manipulation
+      /__proto__|prototype/i, // Prototype pollution
+    ];
+
+    return tamperingIndicators.some((pattern) => pattern.test(payload));
+  }
+
+  trackRequest(request: APIRequest): void {
+    const key = `${request.sourceIP}:${request.endpoint}`;
+    const requests = this.requestHistory.get(key) || [];
+    requests.push(request);
+
+    // Keep only last 100 requests per key
+    this.requestHistory.set(key, requests.slice(-100));
+  }
+}
+```
+
+## API Security Best Practices
+
+### Input Validation
+
+```python
+from marshmallow import Schema, fields, validate, ValidationError
+
+class UserCreateSchema(Schema):
+    """Validate user creation request"""
+    username = fields.Str(
+        required=True,
+        validate=[
+            validate.Length(min=3, max=50),
+            validate.Regexp(r'^[a-zA-Z0-9_]+$', error='Username can only contain letters, numbers, and underscores')
+        ]
+    )
+    email = fields.Email(required=True)
+    age = fields.Int(
+        required=True,
+        validate=validate.Range(min=18, max=150)
+    )
+    role = fields.Str(
+        validate=validate.OneOf(['user', 'moderator', 'admin'])
+    )
+
+@app.route('/api/users', methods=['POST'])
+def create_user():
+    schema = UserCreateSchema()
+
+    try:
+        # Validate input
+        validated_data = schema.load(request.json)
+
+        # Process validated data
+        user = create_user_in_db(validated_data)
+
+        return jsonify({'user_id': user.id}), 201
+
+    except ValidationError as err:
+        return jsonify({'errors': err.messages}), 400
+```
+
+> **Warning**: Never trust client input. Always validate and sanitize on the server side.
+
+### Output Encoding
+
+```python
+import html
+import json
+
+def safe_json_response(data):
+    """Safely encode JSON response"""
+    # Remove sensitive fields
+    safe_data = remove_sensitive_fields(data)
+
+    # Encode HTML entities in strings
+    safe_data = encode_html_recursive(safe_data)
+
+    return jsonify(safe_data)
+
+def encode_html_recursive(obj):
+    """Recursively encode HTML entities"""
+    if isinstance(obj, dict):
+        return {k: encode_html_recursive(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [encode_html_recursive(item) for item in obj]
+    elif isinstance(obj, str):
+        return html.escape(obj)
+    return obj
+
+def remove_sensitive_fields(data):
+    """Remove sensitive fields from response"""
+    sensitive_fields = ['password', 'api_key', 'secret', 'token']
+
+    if isinstance(data, dict):
+        return {
+            k: remove_sensitive_fields(v)
+            for k, v in data.items()
+            if k not in sensitive_fields
+        }
+    elif isinstance(data, list):
+        return [remove_sensitive_fields(item) for item in data]
+    return data
+```
+
+### CORS Configuration
+
+```python
+from flask_cors import CORS
+
+# Secure CORS configuration
+cors_config = {
+    "origins": ["https://trusted-domain.com"],
+    "methods": ["GET", "POST", "PUT", "DELETE"],
+    "allow_headers": ["Content-Type", "Authorization"],
+    "expose_headers": ["X-Total-Count"],
+    "max_age": 3600,
+    "supports_credentials": True
+}
+
+CORS(app, resources={r"/api/*": cors_config})
+```
+
+## API Security Monitoring Dashboard
+
+```python
+class APISecurityDashboard:
+    def __init__(self, monitor):
+        self.monitor = monitor
+
+    def get_metrics(self, time_range='1h'):
+        """Get security metrics for dashboard"""
+        requests = self.get_requests_in_range(time_range)
+
+        return {
+            'total_requests': len(requests),
+            'blocked_requests': len([r for r in requests if r['blocked']]),
+            'authentication_failures': len([r for r in requests if r['response_code'] == 401]),
+            'rate_limit_hits': len([r for r in requests if r['response_code'] == 429]),
+            'average_response_time': np.mean([r['response_time'] for r in requests]),
+            'top_attacking_ips': self.get_top_attackers(requests),
+            'most_targeted_endpoints': self.get_most_targeted(requests),
+            'attack_types': self.categorize_attacks(requests)
+        }
+
+    def get_top_attackers(self, requests, limit=10):
+        """Get top attacking IP addresses"""
+        from collections import Counter
+
+        blocked = [r['source_ip'] for r in requests if r.get('blocked')]
+        return Counter(blocked).most_common(limit)
+
+    def categorize_attacks(self, requests):
+        """Categorize types of attacks"""
+        categories = {
+            'sql_injection': 0,
+            'xss': 0,
+            'brute_force': 0,
+            'rate_limit': 0,
+            'unauthorized': 0
+        }
+
+        for req in requests:
+            if req.get('attack_type'):
+                categories[req['attack_type']] += 1
+
+        return categories
+```
+
+## Incident Response
+
+### Automated Blocking
+
+```python
+class APIIncidentResponder:
+    def __init__(self):
+        self.blocked_ips = set()
+        self.blocked_users = set()
+
+    def respond_to_threat(self, threat):
+        """Automated response to detected threat"""
+        if threat['severity'] == 'critical':
+            # Immediate block
+            self.block_ip(threat['source_ip'])
+            self.alert_security_team(threat)
+
+        elif threat['severity'] == 'high':
+            # Temporary block and investigate
+            self.temporary_block(threat['source_ip'], duration=3600)
+            self.create_investigation_ticket(threat)
+
+        elif threat['severity'] == 'medium':
+            # Increase monitoring
+            self.increase_monitoring(threat['source_ip'])
+            self.log_suspicious_activity(threat)
+
+    def block_ip(self, ip_address):
+        """Permanently block IP address"""
+        self.blocked_ips.add(ip_address)
+        # Update firewall rules
+        self.update_firewall_rules()
+
+    def temporary_block(self, ip_address, duration):
+        """Temporarily block IP address"""
+        import threading
+
+        self.blocked_ips.add(ip_address)
+
+        # Auto-unblock after duration
+        def unblock():
+            time.sleep(duration)
+            self.blocked_ips.discard(ip_address)
+
+        threading.Thread(target=unblock).start()
+```
+
+> **Important**: Balance security with user experience. Implement graduated responses rather than immediately blocking everything.
+
+## Conclusion
+
+API security requires multiple layers of defense: authentication, authorization, rate limiting, input validation, and continuous monitoring. Implement these controls progressively based on your risk profile.
+
+> **Remember**: APIs are often the weakest link in application security. Prioritize API security in your SOC operations.

@@ -1,0 +1,247 @@
+---
+title: Advanced Threat Hunting Techniques
+description: Master proactive threat hunting strategies to detect sophisticated attacks before they cause damage
+author: Alex Rodriguez
+date: 2024-12-15
+---
+
+## The Shift to Proactive Security
+
+Traditional security approaches wait for alerts. Threat hunting actively searches for threats that evade automated detection.
+
+> **Key Insight**: 68% of breaches are discovered months after initial compromise. Proactive hunting reduces this window dramatically.
+
+## Threat Hunting Methodology
+
+### 1. Hypothesis Generation
+
+Start with a hypothesis based on threat intelligence:
+
+```markdown
+**Hypothesis**: Attackers may be using PowerShell to download and execute malware
+
+**Indicators to Look For**:
+
+- Unusual PowerShell execution patterns
+- Outbound connections from PowerShell
+- Encoded commands
+- Execution outside business hours
+```
+
+### 2. Data Collection
+
+Gather relevant data:
+
+```python
+# Example: Collect PowerShell events
+import pandas as pd
+
+def collect_powershell_events(start_time, end_time):
+    """Collect PowerShell execution events"""
+    query = f"""
+    SELECT
+        timestamp,
+        hostname,
+        user,
+        command_line,
+        parent_process
+    FROM security_events
+    WHERE event_type = 'process_creation'
+    AND process_name LIKE '%powershell%'
+    AND timestamp BETWEEN '{start_time}' AND '{end_time}'
+    """
+
+    return execute_query(query)
+```
+
+### 3. Pattern Analysis
+
+Look for anomalies:
+
+```javascript
+// Detect encoded PowerShell commands
+const detectEncodedCommands = (events) => {
+  return events.filter((event) => {
+    const cmd = event.command_line.toLowerCase();
+    return (
+      cmd.includes("-encodedcommand") ||
+      cmd.includes("-enc") ||
+      cmd.match(/[A-Za-z0-9+/]{50,}/)
+    ); // Base64 pattern
+  });
+};
+```
+
+> **Warning**: Legitimate software may also use encoded commands. Investigate each finding in context.
+
+## Common Hunting Patterns
+
+### Detecting Persistence Mechanisms
+
+Attackers establish persistence to maintain access:
+
+```bash
+# Check common persistence locations
+# Registry Run Keys
+reg query "HKLM\Software\Microsoft\Windows\CurrentVersion\Run"
+
+# Scheduled Tasks
+schtasks /query /fo LIST /v
+
+# Services
+sc query state=all
+```
+
+### Identifying Lateral Movement
+
+```sql
+-- Detect unusual authentication patterns
+SELECT
+    user_name,
+    COUNT(DISTINCT source_ip) as unique_sources,
+    COUNT(DISTINCT destination_host) as unique_destinations
+FROM authentication_logs
+WHERE event_time > NOW() - INTERVAL '1 hour'
+GROUP BY user_name
+HAVING COUNT(DISTINCT source_ip) > 5
+OR COUNT(DISTINCT destination_host) > 10;
+```
+
+> **Note**: Service accounts may show high connection counts. Establish baselines for known accounts.
+
+### Finding Data Exfiltration
+
+```python
+# Detect large outbound data transfers
+def detect_exfiltration(network_logs):
+    """Identify potential data exfiltration"""
+    threshold_mb = 100
+
+    suspicious = []
+    for host in network_logs.groupby('source_host'):
+        outbound = host[host['direction'] == 'outbound']
+        total_bytes = outbound['bytes'].sum()
+
+        if total_bytes > threshold_mb * 1024 * 1024:
+            suspicious.append({
+                'host': host.name,
+                'bytes_transferred': total_bytes,
+                'destinations': outbound['dest_ip'].unique().tolist()
+            })
+
+    return suspicious
+```
+
+## Advanced Techniques
+
+### Behavioral Analysis
+
+Use machine learning to detect anomalies:
+
+```python
+from sklearn.ensemble import IsolationForest
+import numpy as np
+
+def detect_behavioral_anomalies(user_activity):
+    """Detect anomalous user behavior"""
+
+    # Feature engineering
+    features = user_activity[[
+        'login_count',
+        'unique_systems_accessed',
+        'data_downloaded_mb',
+        'after_hours_activity'
+    ]]
+
+    # Train anomaly detector
+    clf = IsolationForest(contamination=0.1, random_state=42)
+    predictions = clf.fit_predict(features)
+
+    # Return anomalous users
+    anomalies = user_activity[predictions == -1]
+    return anomalies
+```
+
+> **Important**: Machine learning models require regular retraining to adapt to evolving user behavior.
+
+### Threat Intelligence Integration
+
+Enrich hunting with threat intelligence:
+
+```typescript
+interface ThreatIntel {
+  indicator: string;
+  type: "ip" | "domain" | "hash";
+  severity: "low" | "medium" | "high" | "critical";
+  source: string;
+}
+
+async function enrichWithThreatIntel(
+  events: SecurityEvent[],
+): Promise<EnrichedEvent[]> {
+  const enriched = await Promise.all(
+    events.map(async (event) => {
+      const intel = await queryThreatIntelFeed(event.indicator);
+      return { ...event, threatIntel: intel };
+    }),
+  );
+
+  return enriched.filter((e) => e.threatIntel !== null);
+}
+```
+
+## Tools and Resources
+
+### Essential Hunting Tools
+
+1. **Velociraptor** - Endpoint visibility and collection
+2. **Sigma** - Generic signature format for SIEM systems
+3. **YARA** - Pattern matching for malware detection
+4. **Jupyter Notebooks** - Data analysis and visualization
+
+### Example YARA Rule
+
+```
+rule Suspicious_PowerShell_Download {
+    meta:
+        description = "Detects PowerShell download commands"
+        author = "SOC Team"
+
+    strings:
+        $download1 = "DownloadFile" nocase
+        $download2 = "WebClient" nocase
+        $download3 = "Invoke-WebRequest" nocase
+        $download4 = "iwr" nocase
+
+    condition:
+        any of ($download*)
+}
+```
+
+> **Tip**: Share successful hunting queries with your team to build a knowledge base.
+
+## Measuring Hunting Effectiveness
+
+Track these metrics:
+
+- **Dwell Time**: Time from compromise to detection
+- **Hunt Coverage**: Percentage of environment hunted
+- **Findings Rate**: Valid threats found per hunt
+- **False Positive Rate**: Invalid findings per hunt
+
+```python
+def calculate_hunt_metrics(hunts):
+    """Calculate hunting program effectiveness"""
+    return {
+        'total_hunts': len(hunts),
+        'threats_found': sum(h.threats_found for h in hunts),
+        'avg_duration': np.mean([h.duration for h in hunts]),
+        'coverage_percent': calculate_coverage(hunts)
+    }
+```
+
+## Conclusion
+
+Effective threat hunting combines human intuition with data analysis. Develop hypotheses, collect evidence, and continuously refine your techniques based on findings.
+
+> **Remember**: Not finding threats doesn't mean they're not there. It means you need to hunt differently.

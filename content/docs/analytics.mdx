@@ -1,0 +1,840 @@
+---
+title: Analytics & Reporting
+description: Build dashboards, create reports, and analyze security data
+icon: ChartColumn
+---
+
+# Analytics & Reporting
+
+Vinci provides powerful analytics and reporting capabilities to help you understand your security posture, measure team performance, and demonstrate compliance.
+
+## Dashboards
+
+### Pre-built Dashboards
+
+Vinci includes several pre-configured dashboards:
+
+#### Security Overview Dashboard
+
+Real-time view of your security posture:
+
+```yaml
+dashboard:
+  name: "Security Overview"
+  widgets:
+    - type: "metric"
+      title: "Active Incidents"
+      query: "status:open"
+      timeframe: "now"
+
+    - type: "metric"
+      title: "New Alerts (24h)"
+      query: "created_at >= now-24h"
+
+    - type: "time_series"
+      title: "Alert Trend"
+      query: "*"
+      group_by: "severity"
+      timeframe: "7d"
+
+    - type: "pie_chart"
+      title: "Incidents by Type"
+      query: "status:!=closed"
+      group_by: "type"
+
+    - type: "table"
+      title: "Critical Alerts"
+      query: "severity:critical AND status:new"
+      columns: ["title", "source", "created_at"]
+      limit: 10
+```
+
+#### SOC Performance Dashboard
+
+Track team metrics and KPIs:
+
+- **MTTD (Mean Time to Detect)**: Average time from event to alert
+- **MTTA (Mean Time to Acknowledge)**: Average response time
+- **MTTC (Mean Time to Contain)**: Average containment time
+- **MTTR (Mean Time to Resolve)**: Average resolution time
+- **Alert Volume**: Trends over time
+- **False Positive Rate**: % of alerts marked as false positives
+- **SLA Compliance**: % of incidents meeting SLA targets
+- **Analyst Productivity**: Cases handled per analyst
+
+#### Threat Intelligence Dashboard
+
+Visualize threat landscape:
+
+- **IOC Matches**: Recent threat intel hits
+- **Attack Patterns**: MITRE ATT&CK coverage
+- **Geographic Threats**: Heat map of attack sources
+- **Malware Families**: Top detected malware
+- **Campaign Tracking**: Active threat campaigns
+
+### Custom Dashboard Creation
+
+#### Using the UI
+
+```javascript
+// Create custom dashboard via API
+const dashboard = await vinci.dashboards.create({
+  name: "Executive Security Report",
+  description: "High-level security metrics for leadership",
+  layout: "grid",
+  refresh_interval: "5m",
+
+  widgets: [
+    {
+      type: "metric_card",
+      position: { x: 0, y: 0, w: 3, h: 2 },
+      config: {
+        title: "Security Score",
+        query: "calculate_security_score()",
+        format: "percentage",
+        threshold: {
+          good: 80,
+          warning: 60,
+          critical: 40,
+        },
+      },
+    },
+    {
+      type: "line_chart",
+      position: { x: 3, y: 0, w: 9, h: 4 },
+      config: {
+        title: "Incident Trend - Last 30 Days",
+        query: `
+          incidents
+          | where created_at >= now-30d
+          | timechart span=1d count by severity
+        `,
+        colors: {
+          critical: "#dc2626",
+          high: "#ea580c",
+          medium: "#f59e0b",
+          low: "#84cc16",
+        },
+      },
+    },
+    {
+      type: "bar_chart",
+      position: { x: 0, y: 4, w: 6, h: 4 },
+      config: {
+        title: "Top Attack Vectors",
+        query: `
+          incidents
+          | where created_at >= now-7d
+          | stats count by type
+          | sort count desc
+          | head 10
+        `,
+        orientation: "horizontal",
+      },
+    },
+    {
+      type: "heatmap",
+      position: { x: 6, y: 4, w: 6, h: 4 },
+      config: {
+        title: "Alert Activity by Hour",
+        query: `
+          alerts
+          | where created_at >= now-7d
+          | eval hour=strftime(created_at, "%H")
+          | eval day=strftime(created_at, "%A")
+          | stats count by hour, day
+        `,
+        x_axis: "hour",
+        y_axis: "day",
+      },
+    },
+  ],
+
+  permissions: {
+    viewers: ["executives@company.com"],
+    editors: ["soc-manager@company.com"],
+  },
+});
+```
+
+## Query Language
+
+### SPL (Security Processing Language)
+
+Vinci uses a powerful query language for data analysis:
+
+#### Basic Queries
+
+```spl
+# Search for all authentication failures
+event_type:"authentication" AND status:"failure"
+
+# Find failed logins from external IPs
+event_type:"ssh_login" status:"failure" source_ip:!(10.0.0.0/8 OR 172.16.0.0/12 OR 192.168.0.0/16)
+
+# Search for PowerShell execution
+process_name:"powershell.exe" AND command_line:*-enc*
+```
+
+#### Aggregations
+
+```spl
+# Count events by source IP
+* | stats count by source_ip | sort count desc
+
+# Calculate average response time
+incidents | stats avg(response_time) by severity
+
+# Top 10 users by failed logins
+event_type:"authentication" status:"failure"
+| stats count by user
+| sort count desc
+| head 10
+```
+
+#### Time-based Analysis
+
+```spl
+# Events per hour for last 24 hours
+* | where timestamp >= now-24h
+| timechart span=1h count
+
+# Compare this week vs last week
+* | where timestamp >= now-14d
+| eval week=if(timestamp >= now-7d, "this_week", "last_week")
+| timechart span=1d count by week
+```
+
+#### Statistical Functions
+
+```spl
+# Calculate percentiles for response time
+incidents
+| stats p50(response_time) as median,
+        p95(response_time) as p95,
+        p99(response_time) as p99
+
+# Standard deviation of alert volume
+alerts
+| timechart span=1h count as alert_count
+| stats avg(alert_count) as mean, stdev(alert_count) as stddev
+```
+
+#### Advanced Correlation
+
+```spl
+# Find hosts with multiple suspicious activities
+(
+  (event_type:"process_creation" AND process_name:*powershell*)
+  OR (event_type:"network_connection" AND dest_port:(445 OR 3389))
+  OR (event_type:"file_creation" AND file_extension:".encrypted")
+)
+| stats dc(event_type) as unique_events, count by hostname
+| where unique_events >= 2 AND count >= 10
+| sort count desc
+```
+
+## Reports
+
+### Scheduled Reports
+
+Create reports that run automatically:
+
+```javascript
+const report = await vinci.reports.create({
+  name: "Weekly Security Summary",
+  schedule: {
+    frequency: "weekly",
+    day: "monday",
+    time: "09:00",
+    timezone: "America/New_York",
+  },
+
+  sections: [
+    {
+      title: "Executive Summary",
+      type: "text",
+      content: `
+        This report summarizes security activities for the week of {{start_date}} to {{end_date}}.
+      `,
+    },
+    {
+      title: "Incident Statistics",
+      type: "metrics",
+      metrics: [
+        {
+          name: "Total Incidents",
+          query: "incidents | where created_at >= {{start_date}} | stats count",
+        },
+        {
+          name: "Critical Incidents",
+          query:
+            "incidents | where severity='critical' AND created_at >= {{start_date}} | stats count",
+        },
+        {
+          name: "Mean Time to Resolve",
+          query:
+            "incidents | where resolved_at >= {{start_date}} | stats avg(resolution_time)",
+        },
+      ],
+    },
+    {
+      title: "Incident Trend",
+      type: "chart",
+      chart_type: "line",
+      query: `
+        incidents 
+        | where created_at >= {{start_date}} 
+        | timechart span=1d count by severity
+      `,
+    },
+    {
+      title: "Top 10 Detection Rules",
+      type: "table",
+      query: `
+        alerts 
+        | where created_at >= {{start_date}}
+        | stats count by rule_name
+        | sort count desc
+        | head 10
+      `,
+      columns: ["rule_name", "count"],
+    },
+    {
+      title: "Notable Incidents",
+      type: "table",
+      query: `
+        incidents 
+        | where created_at >= {{start_date}} AND severity IN ('critical', 'high')
+        | table title, severity, status, assigned_to, created_at
+      `,
+    },
+  ],
+
+  delivery: {
+    email: {
+      to: ["executives@company.com", "soc-team@company.com"],
+      subject: "Weekly Security Summary - {{start_date}}",
+      format: "pdf",
+    },
+    slack: {
+      channel: "#security-reports",
+      format: "interactive",
+    },
+    storage: {
+      enabled: true,
+      path: "/reports/weekly/",
+      retention_days: 365,
+    },
+  },
+});
+```
+
+### On-Demand Reports
+
+Generate reports instantly:
+
+```javascript
+// Incident response report
+const incidentReport = await vinci.reports.generate({
+  type: "incident_summary",
+  incident_id: "inc_xyz789",
+
+  sections: [
+    "executive_summary",
+    "incident_timeline",
+    "affected_systems",
+    "iocs",
+    "response_actions",
+    "evidence",
+    "recommendations",
+  ],
+
+  format: "pdf",
+  include_attachments: true,
+  redact_sensitive: false,
+});
+
+// Download report
+await vinci.reports.download(incidentReport.id, "./incident-report.pdf");
+```
+
+### Compliance Reports
+
+Generate reports for regulatory requirements:
+
+```javascript
+// SOC 2 Compliance Report
+const soc2Report = await vinci.reports.generate({
+  type: "compliance",
+  framework: "soc2",
+  period: {
+    start: "2026-01-01",
+    end: "2026-12-31",
+  },
+
+  controls: [
+    "CC6.1", // Security incident management
+    "CC6.2", // Security incident detection
+    "CC7.2", // Security monitoring
+    "CC7.3", // Alert escalation
+  ],
+
+  evidence: {
+    include_logs: true,
+    include_policies: true,
+    include_procedures: true,
+    include_training_records: true,
+  },
+
+  format: "pdf",
+  attestation: true,
+});
+
+// PCI DSS Report
+const pciReport = await vinci.reports.generate({
+  type: "compliance",
+  framework: "pci_dss",
+  version: "4.0",
+
+  requirements: [
+    "10.1", // Audit trails
+    "10.2", // Security events logged
+    "10.3", // Audit trail protection
+    "10.4", // Log review
+    "10.5", // Retain audit logs
+    "10.6", // Log analysis
+  ],
+});
+```
+
+## Metrics and KPIs
+
+### Security Metrics
+
+Track security posture over time:
+
+```javascript
+// Get security metrics
+const metrics = await vinci.analytics.getMetrics({
+  timeframe: "30d",
+  metrics: [
+    "security_score",
+    "incident_count",
+    "alert_volume",
+    "false_positive_rate",
+    "detection_coverage",
+    "response_times",
+    "vulnerability_count",
+    "compliance_score"
+  ]
+});
+
+// Security score breakdown
+{
+  security_score: {
+    current: 78,
+    previous: 75,
+    change: +3,
+    factors: {
+      incident_response: 85,
+      vulnerability_management: 72,
+      access_control: 80,
+      monitoring_coverage: 75,
+      compliance: 78
+    }
+  }
+}
+```
+
+### Operational Metrics
+
+Monitor SOC operations:
+
+```javascript
+// SOC performance metrics
+const socMetrics = await vinci.analytics.getSocMetrics({
+  timeframe: "30d"
+});
+
+{
+  mttd: "8m 32s",           // Mean Time to Detect
+  mtta: "12m 45s",          // Mean Time to Acknowledge
+  mttc: "2h 15m",           // Mean Time to Contain
+  mttr: "6h 30m",           // Mean Time to Resolve
+
+  alert_volume: {
+    total: 45230,
+    daily_average: 1507,
+    trend: "+5%"
+  },
+
+  false_positive_rate: 15,  // percentage
+
+  sla_compliance: {
+    p1_critical: 95,        // percentage
+    p2_high: 98,
+    p3_medium: 99,
+    p4_low: 100
+  },
+
+  analyst_productivity: {
+    avg_cases_per_analyst: 45,
+    avg_time_per_case: "4h 20m",
+    utilization_rate: 78      // percentage
+  }
+}
+```
+
+### Threat Metrics
+
+Understand threat landscape:
+
+```javascript
+const threatMetrics = await vinci.analytics.getThreatMetrics({
+  timeframe: "90d"
+});
+
+{
+  attack_vectors: {
+    phishing: 45,
+    malware: 30,
+    brute_force: 15,
+    vulnerability_exploit: 10
+  },
+
+  mitre_coverage: {
+    tactics_detected: 12,
+    tactics_total: 14,
+    coverage_percentage: 85.7
+  },
+
+  threat_actors: [
+    { name: "APT28", incidents: 3, severity: "high" },
+    { name: "Cobalt Strike", incidents: 5, severity: "medium" }
+  ],
+
+  geographic_sources: {
+    "Russia": 25,
+    "China": 20,
+    "Unknown": 30,
+    "United States": 15,
+    "Other": 10
+  }
+}
+```
+
+## Data Visualization
+
+### Chart Types
+
+#### Line Charts
+
+Time-series data visualization:
+
+```javascript
+{
+  type: "line_chart",
+  query: "incidents | timechart span=1d count by severity",
+  config: {
+    x_axis: { label: "Date", format: "MMM DD" },
+    y_axis: { label: "Count", scale: "linear" },
+    legend: { position: "bottom" },
+    smooth: true,
+    fill: false
+  }
+}
+```
+
+#### Bar Charts
+
+Compare categories:
+
+```javascript
+{
+  type: "bar_chart",
+  query: "incidents | stats count by type | sort count desc",
+  config: {
+    orientation: "vertical",
+    stacked: false,
+    color_scheme: "blues"
+  }
+}
+```
+
+#### Pie/Donut Charts
+
+Show proportions:
+
+```javascript
+{
+  type: "donut_chart",
+  query: "alerts | stats count by severity",
+  config: {
+    inner_radius: 50,
+    show_labels: true,
+    show_percentage: true
+  }
+}
+```
+
+#### Heatmaps
+
+Multi-dimensional data:
+
+```javascript
+{
+  type: "heatmap",
+  query: `
+    events
+    | eval hour=hour(timestamp), day=dayofweek(timestamp)
+    | stats count by hour, day
+  `,
+  config: {
+    color_scale: "sequential",
+    color_scheme: "reds",
+    show_values: true
+  }
+}
+```
+
+#### Geographic Maps
+
+Location-based visualization:
+
+```javascript
+{
+  type: "geo_map",
+  query: "events | stats count by geo.country_code",
+  config: {
+    map_type: "choropleth",
+    color_scale: "sequential",
+    zoom_level: "world"
+  }
+}
+```
+
+## Advanced Analytics
+
+### Anomaly Detection
+
+Identify unusual patterns:
+
+```javascript
+// Configure anomaly detection
+const anomalyDetection = await vinci.analytics.configureAnomalyDetection({
+  metric: "login_count",
+  entity: "user",
+
+  algorithm: "isolation_forest",
+  sensitivity: 0.85,
+
+  baseline_period: "30d",
+  detection_period: "24h",
+
+  alert_on_anomaly: true,
+  alert_severity: "medium",
+});
+
+// Get detected anomalies
+const anomalies = await vinci.analytics.getAnomalies({
+  timeframe: "7d",
+  entity_type: "user",
+  min_score: 0.8,
+});
+
+// Example result
+{
+  anomalies: [
+    {
+      entity: "john.doe@company.com",
+      metric: "login_count",
+      expected: 50,
+      observed: 250,
+      anomaly_score: 0.95,
+      timestamp: "2026-01-28T10:00:00Z",
+    },
+  ];
+}
+```
+
+### Trend Analysis
+
+Predict future patterns:
+
+```javascript
+// Forecast alert volume
+const forecast = await vinci.analytics.forecast({
+  metric: "alert_count",
+  algorithm: "prophet",
+  historical_period: "90d",
+  forecast_period: "30d",
+
+  include_confidence_intervals: true,
+  seasonality: {
+    weekly: true,
+    monthly: true,
+  },
+});
+
+// Results include predicted values and confidence bounds
+{
+  forecast: [
+    {
+      date: "2026-02-01",
+      predicted: 1500,
+      lower_bound: 1200,
+      upper_bound: 1800,
+    },
+    // ... more predictions
+  ];
+}
+```
+
+### Behavioral Analysis
+
+Analyze user and entity behavior:
+
+```javascript
+// UEBA (User and Entity Behavior Analytics)
+const behaviorProfile = await vinci.analytics.getUserBehavior({
+  user: "john.doe@company.com",
+  timeframe: "90d",
+
+  features: [
+    "login_times",
+    "login_locations",
+    "accessed_resources",
+    "data_transfers",
+    "failed_attempts"
+  ]
+});
+
+// Result shows normal behavior and deviations
+{
+  user: "john.doe@company.com",
+  risk_score: 45,
+
+  patterns: {
+    typical_login_hours: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+    typical_locations: ["New York, US"],
+    typical_devices: ["Windows Laptop"],
+    typical_applications: ["Email", "CRM", "Document Management"]
+  },
+
+  anomalies: [
+    {
+      type: "unusual_time",
+      description: "Login at 3 AM (outside normal hours)",
+      timestamp: "2026-01-28T03:00:00Z",
+      severity: "medium"
+    },
+    {
+      type: "new_location",
+      description: "Login from Moscow, Russia",
+      timestamp: "2026-01-28T10:00:00Z",
+      severity: "high"
+    }
+  ]
+}
+```
+
+## Export and Integration
+
+### Export Data
+
+```javascript
+// Export to CSV
+await vinci.analytics.export({
+  query: "incidents | where created_at >= now-30d",
+  format: "csv",
+  filename: "incidents-last-30-days.csv",
+});
+
+// Export to JSON
+await vinci.analytics.export({
+  query: "alerts | where severity='critical'",
+  format: "json",
+  filename: "critical-alerts.json",
+});
+
+// Export to Excel
+await vinci.analytics.export({
+  query: "incidents",
+  format: "xlsx",
+  filename: "incident-report.xlsx",
+  sheets: [
+    { name: "Summary", query: "incidents | stats count by severity" },
+    { name: "Details", query: "incidents | table *" },
+  ],
+});
+```
+
+### BI Tool Integration
+
+Connect to popular BI platforms:
+
+```yaml
+# Tableau Connection
+bi_tools:
+  tableau:
+    enabled: true
+    connection_type: "postgres"
+    host: "vinci-db.company.com"
+    database: "vinci_analytics"
+    read_only_user: "tableau_reader"
+
+  # Power BI Connection
+  powerbi:
+    enabled: true
+    connection_type: "direct_query"
+    api_endpoint: "https://api.vinci.company.com/v1/analytics"
+    oauth_enabled: true
+
+  # Looker Connection
+  looker:
+    enabled: true
+    connection_type: "postgres"
+    host: "vinci-db.company.com"
+    database: "vinci_analytics"
+```
+
+## Best Practices
+
+### Dashboard Design
+
+1. **Focus on actionable metrics**: Show data that drives decisions
+2. **Use appropriate visualizations**: Match chart type to data type
+3. **Provide context**: Include baselines and trends
+4. **Optimize performance**: Limit real-time queries
+5. **Design for your audience**: Executive vs analyst dashboards
+
+### Query Optimization
+
+1. **Filter early**: Apply time ranges and filters first
+2. **Limit results**: Use `head` and `tail` to limit output
+3. **Use indexed fields**: Query on indexed fields for speed
+4. **Cache frequently-used queries**: Save as views
+5. **Aggregate before visualizing**: Reduce data points
+
+### Report Distribution
+
+1. **Schedule appropriately**: Balance freshness with load
+2. **Target your audience**: Different reports for different roles
+3. **Include actionable insights**: Not just raw data
+4. **Maintain report catalog**: Document available reports
+5. **Archive historical reports**: Keep for compliance
+
+## Next Steps
+
+<Cards>
+  <Card title="API Reference" href="/docs/api-reference">
+    Query data programmatically
+  </Card>
+  <Card title="Integrations" href="/docs/integrations">
+    Connect external analytics tools
+  </Card>
+  <Card title="Best Practices" href="/docs/best-practices">
+    Analytics and reporting best practices
+  </Card>
+</Cards>

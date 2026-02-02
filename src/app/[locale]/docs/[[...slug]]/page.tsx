@@ -1,10 +1,5 @@
 import { getPageImage, source } from "@/lib/source";
-import {
-  DocsBody,
-  DocsDescription,
-  DocsPage,
-  DocsTitle,
-} from "fumadocs-ui/layouts/docs/page";
+import { DocsBody, DocsPage } from "@/components/layout/docs/page";
 import { notFound } from "next/navigation";
 import { getMDXComponents } from "@/mdx-components";
 import type { Metadata } from "next";
@@ -18,10 +13,14 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const MDX = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
-      <DocsBody>
+    <DocsPage
+      tableOfContent={{
+        style: "clerk",
+      }}
+      toc={page.data.toc}
+      full={page.data.full}
+    >
+      <DocsBody className="[&>h1]:border-b-2 [&>h1]:border-primary [&>h1]:pb-4 [&>h1]:mb-8 [&>h2]:relative [&>h2]:pb-4 [&>h2]:mb-6 [&>h2]:after:content-[''] [&>h2]:after:absolute [&>h2]:after:bottom-0 [&>h2]:after:left-0 [&>h2]:after:w-1/2 [&>h2]:after:h-0.5 [&>h2]:after:bg-primary/60 [&>h3]:relative [&>h3]:pb-3 [&>h3]:mb-4 [&>h3]:after:content-[''] [&>h3]:after:absolute [&>h3]:after:bottom-0 [&>h3]:after:left-0 [&>h3]:after:w-1/2 [&>h3]:after:h-0.5 [&>h3]:after:bg-primary/40">
         <MDX
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths

@@ -1,0 +1,603 @@
+---
+title: Machine Learning for Threat Detection
+description: Leverage machine learning and AI to enhance threat detection capabilities in your SOC
+author: Dr. Rachel Kim
+date: 2024-12-03
+---
+
+## Why Machine Learning in Security?
+
+Traditional signature-based detection misses novel threats. Machine learning adapts to detect previously unknown attacks.
+
+> **Impact**: Organizations using ML-enhanced detection see 60% faster threat identification.
+
+## Machine Learning Approaches
+
+### Supervised Learning
+
+Train models on labeled security data:
+
+```python
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import pandas as pd
+import numpy as np
+
+class MalwareDetector:
+    def __init__(self):
+        self.model = RandomForestClassifier(n_estimators=100, random_state=42)
+        self.features = [
+            'file_size',
+            'entropy',
+            'num_imports',
+            'num_exports',
+            'num_sections',
+            'has_debug_info',
+            'is_packed',
+            'suspicious_api_calls'
+        ]
+
+    def train(self, training_data):
+        """Train malware detection model"""
+        X = training_data[self.features]
+        y = training_data['is_malware']
+
+        # Split data
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+
+        # Train model
+        self.model.fit(X_train, y_train)
+
+        # Evaluate
+        accuracy = self.model.score(X_test, y_test)
+
+        return {
+            'accuracy': accuracy,
+            'feature_importance': dict(zip(
+                self.features,
+                self.model.feature_importances_
+            ))
+        }
+
+    def predict(self, file_features):
+        """Predict if file is malware"""
+        features = pd.DataFrame([file_features])
+        prediction = self.model.predict(features)[0]
+        probability = self.model.predict_proba(features)[0]
+
+        return {
+            'is_malware': bool(prediction),
+            'confidence': float(max(probability)),
+            'risk_score': float(probability[1]) * 10
+        }
+```
+
+### Unsupervised Learning
+
+Detect anomalies without labeled data:
+
+```python
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+
+class AnomalyDetector:
+    def __init__(self, contamination=0.1):
+        self.scaler = StandardScaler()
+        self.model = IsolationForest(
+            contamination=contamination,
+            random_state=42,
+            n_estimators=100
+        )
+
+    def fit(self, normal_behavior_data):
+        """Learn normal behavior patterns"""
+        # Normalize features
+        X_scaled = self.scaler.fit_transform(normal_behavior_data)
+
+        # Fit model
+        self.model.fit(X_scaled)
+
+        return self
+
+    def detect_anomalies(self, events):
+        """Detect anomalous events"""
+        X_scaled = self.scaler.transform(events)
+        predictions = self.model.predict(X_scaled)
+        scores = self.model.score_samples(X_scaled)
+
+        anomalies = []
+        for idx, (pred, score) in enumerate(zip(predictions, scores)):
+            if pred == -1:  # Anomaly
+                anomalies.append({
+                    'index': idx,
+                    'event': events.iloc[idx].to_dict(),
+                    'anomaly_score': abs(score),
+                    'severity': self.calculate_severity(score)
+                })
+
+        return anomalies
+
+    @staticmethod
+    def calculate_severity(score):
+        """Convert anomaly score to severity"""
+        abs_score = abs(score)
+        if abs_score > 0.5:
+            return 'critical'
+        elif abs_score > 0.3:
+            return 'high'
+        elif abs_score > 0.15:
+            return 'medium'
+        return 'low'
+```
+
+> **Note**: Unsupervised learning is particularly useful for detecting unknown attack patterns.
+
+### Deep Learning
+
+Use neural networks for complex pattern recognition:
+
+```python
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+
+class NetworkTrafficClassifier:
+    def __init__(self, num_features, num_classes):
+        self.model = self.build_model(num_features, num_classes)
+
+    def build_model(self, num_features, num_classes):
+        """Build deep learning model"""
+        model = keras.Sequential([
+            layers.Dense(128, activation='relu', input_shape=(num_features,)),
+            layers.Dropout(0.3),
+            layers.Dense(64, activation='relu'),
+            layers.Dropout(0.2),
+            layers.Dense(32, activation='relu'),
+            layers.Dense(num_classes, activation='softmax')
+        ])
+
+        model.compile(
+            optimizer='adam',
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+
+        return model
+
+    def train(self, X_train, y_train, X_val, y_val, epochs=50):
+        """Train the model"""
+        history = self.model.fit(
+            X_train, y_train,
+            validation_data=(X_val, y_val),
+            epochs=epochs,
+            batch_size=32,
+            callbacks=[
+                keras.callbacks.EarlyStopping(
+                    patience=5,
+                    restore_best_weights=True
+                ),
+                keras.callbacks.ReduceLROnPlateau(
+                    patience=3,
+                    factor=0.5
+                )
+            ]
+        )
+
+        return history
+
+    def predict(self, network_traffic):
+        """Classify network traffic"""
+        predictions = self.model.predict(network_traffic)
+
+        classes = ['benign', 'dos', 'probe', 'r2l', 'u2r']
+        results = []
+
+        for pred in predictions:
+            class_idx = np.argmax(pred)
+            results.append({
+                'class': classes[class_idx],
+                'confidence': float(pred[class_idx]),
+                'probabilities': {
+                    cls: float(prob)
+                    for cls, prob in zip(classes, pred)
+                }
+            })
+
+        return results
+```
+
+## Use Cases
+
+### 1. Phishing Detection
+
+```python
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+
+class PhishingDetector:
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer(max_features=5000)
+        self.model = MultinomialNB()
+
+    def extract_features(self, email):
+        """Extract features from email"""
+        features = {
+            'text': email['subject'] + ' ' + email['body'],
+            'has_urgent_language': bool(re.search(r'urgent|immediate|action required', email['body'], re.I)),
+            'has_suspicious_links': bool(re.search(r'bit\.ly|tinyurl', email['body'])),
+            'sender_domain_age_days': self.get_domain_age(email['sender']),
+            'has_attachments': len(email.get('attachments', [])) > 0,
+            'external_sender': not email['sender'].endswith('@company.com')
+        }
+
+        return features
+
+    def train(self, training_emails, labels):
+        """Train phishing detector"""
+        # Extract text features
+        texts = [e['subject'] + ' ' + e['body'] for e in training_emails]
+        X_text = self.vectorizer.fit_transform(texts)
+
+        # Train model
+        self.model.fit(X_text, labels)
+
+    def predict(self, email):
+        """Detect if email is phishing"""
+        features = self.extract_features(email)
+        X_text = self.vectorizer.transform([features['text']])
+
+        # Get prediction
+        prediction = self.model.predict(X_text)[0]
+        probability = self.model.predict_proba(X_text)[0]
+
+        # Calculate risk score
+        risk_score = probability[1] * 10  # Phishing probability
+
+        # Additional risk factors
+        if features['has_urgent_language']:
+            risk_score += 2
+        if features['has_suspicious_links']:
+            risk_score += 3
+        if features['sender_domain_age_days'] < 30:
+            risk_score += 2
+
+        return {
+            'is_phishing': prediction == 1,
+            'risk_score': min(risk_score, 10),
+            'confidence': float(max(probability)),
+            'indicators': self.get_indicators(features)
+        }
+```
+
+### 2. User Behavior Analytics (UBA)
+
+```python
+from sklearn.cluster import DBSCAN
+import numpy as np
+
+class UserBehaviorAnalytics:
+    def __init__(self):
+        self.user_profiles = {}
+
+    def build_user_profile(self, user_id, historical_activities):
+        """Build behavioral profile for user"""
+        profile = {
+            'user_id': user_id,
+            'typical_login_hours': self.extract_typical_hours(historical_activities),
+            'typical_locations': self.extract_locations(historical_activities),
+            'typical_data_access': self.extract_access_patterns(historical_activities),
+            'baseline_metrics': {
+                'avg_session_duration': np.mean([a['duration'] for a in historical_activities]),
+                'avg_files_accessed': np.mean([a['files_accessed'] for a in historical_activities]),
+                'typical_applications': self.get_frequent_apps(historical_activities)
+            }
+        }
+
+        self.user_profiles[user_id] = profile
+        return profile
+
+    def detect_anomalous_behavior(self, user_id, current_activity):
+        """Detect if current activity is anomalous"""
+        if user_id not in self.user_profiles:
+            return {'anomalous': False, 'reason': 'no_baseline'}
+
+        profile = self.user_profiles[user_id]
+        anomalies = []
+        risk_score = 0
+
+        # Check login time
+        if not self.is_typical_hour(current_activity['hour'], profile['typical_login_hours']):
+            anomalies.append('unusual_login_time')
+            risk_score += 2
+
+        # Check location
+        if current_activity['location'] not in profile['typical_locations']:
+            anomalies.append('unusual_location')
+            risk_score += 3
+
+        # Check data access volume
+        if current_activity['files_accessed'] > profile['baseline_metrics']['avg_files_accessed'] * 5:
+            anomalies.append('excessive_data_access')
+            risk_score += 4
+
+        # Check application usage
+        if current_activity['application'] not in profile['baseline_metrics']['typical_applications']:
+            anomalies.append('unusual_application')
+            risk_score += 2
+
+        return {
+            'anomalous': len(anomalies) > 0,
+            'risk_score': min(risk_score, 10),
+            'anomalies': anomalies,
+            'requires_investigation': risk_score >= 5
+        }
+```
+
+### 3. Log Analysis
+
+```python
+import re
+from collections import Counter
+
+class LogAnomalyDetector:
+    def __init__(self):
+        self.log_templates = {}
+        self.rare_events_threshold = 0.01
+
+    def extract_log_template(self, log_line):
+        """Extract template from log line"""
+        # Remove numbers, IPs, timestamps
+        template = re.sub(r'\d+\.\d+\.\d+\.\d+', '<IP>', log_line)
+        template = re.sub(r'\d{4}-\d{2}-\d{2}', '<DATE>', template)
+        template = re.sub(r'\d{2}:\d{2}:\d{2}', '<TIME>', template)
+        template = re.sub(r'\d+', '<NUM>', template)
+        template = re.sub(r'[a-f0-9]{8,}', '<HASH>', template)
+
+        return template
+
+    def learn_normal_patterns(self, log_lines):
+        """Learn normal log patterns"""
+        template_counts = Counter()
+
+        for line in log_lines:
+            template = self.extract_log_template(line)
+            template_counts[template] += 1
+
+        # Calculate frequencies
+        total = sum(template_counts.values())
+        self.log_templates = {
+            template: count / total
+            for template, count in template_counts.items()
+        }
+
+    def detect_anomalies(self, log_lines):
+        """Detect anomalous log entries"""
+        anomalies = []
+
+        for idx, line in enumerate(log_lines):
+            template = self.extract_log_template(line)
+            frequency = self.log_templates.get(template, 0)
+
+            # Rare or unknown pattern
+            if frequency < self.rare_events_threshold:
+                severity = 'high' if frequency == 0 else 'medium'
+                anomalies.append({
+                    'line_number': idx,
+                    'log_line': line,
+                    'template': template,
+                    'frequency': frequency,
+                    'severity': severity,
+                    'reason': 'rare_pattern' if frequency > 0 else 'unknown_pattern'
+                })
+
+        return anomalies
+```
+
+> **Warning**: ML models require regular retraining to maintain accuracy as attack patterns evolve.
+
+## Feature Engineering
+
+### Network Traffic Features
+
+```python
+def extract_network_features(flow):
+    """Extract features from network flow"""
+    return {
+        # Volume features
+        'total_bytes': flow['bytes_sent'] + flow['bytes_received'],
+        'bytes_per_second': flow['total_bytes'] / flow['duration'],
+        'packets_per_second': flow['packet_count'] / flow['duration'],
+
+        # Behavioral features
+        'client_server_ratio': flow['bytes_sent'] / max(flow['bytes_received'], 1),
+        'avg_packet_size': flow['total_bytes'] / flow['packet_count'],
+
+        # Time-based features
+        'hour_of_day': flow['timestamp'].hour,
+        'day_of_week': flow['timestamp'].weekday(),
+        'is_business_hours': 9 <= flow['timestamp'].hour <= 17,
+
+        # Protocol features
+        'protocol': flow['protocol'],
+        'destination_port': flow['dst_port'],
+        'tcp_flags': flow.get('tcp_flags', 0),
+
+        # Statistical features
+        'entropy': calculate_entropy(flow['payload']),
+        'inter_arrival_time_mean': np.mean(flow['inter_arrival_times']),
+        'inter_arrival_time_std': np.std(flow['inter_arrival_times'])
+    }
+```
+
+## Model Deployment
+
+### Real-time Inference
+
+```python
+import joblib
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+# Load trained model
+model = joblib.load('models/threat_detector.pkl')
+scaler = joblib.load('models/scaler.pkl')
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    """Real-time threat prediction endpoint"""
+    try:
+        # Get input data
+        data = request.json
+        features = extract_features(data)
+
+        # Preprocess
+        X = scaler.transform([features])
+
+        # Predict
+        prediction = model.predict(X)[0]
+        probability = model.predict_proba(X)[0]
+
+        response = {
+            'is_threat': bool(prediction),
+            'confidence': float(max(probability)),
+            'risk_score': float(probability[1]) * 10,
+            'timestamp': data['timestamp']
+        }
+
+        # Log prediction
+        log_prediction(data, response)
+
+        return jsonify(response)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+```
+
+### Model Monitoring
+
+```python
+class ModelMonitor:
+    def __init__(self):
+        self.predictions = []
+        self.performance_window = 1000
+
+    def track_prediction(self, features, prediction, actual=None):
+        """Track model predictions"""
+        self.predictions.append({
+            'timestamp': datetime.now(),
+            'prediction': prediction,
+            'actual': actual,
+            'features': features
+        })
+
+        # Keep only recent predictions
+        self.predictions = self.predictions[-self.performance_window:]
+
+    def calculate_metrics(self):
+        """Calculate model performance metrics"""
+        predictions_with_labels = [
+            p for p in self.predictions if p['actual'] is not None
+        ]
+
+        if len(predictions_with_labels) < 10:
+            return {'status': 'insufficient_data'}
+
+        y_true = [p['actual'] for p in predictions_with_labels]
+        y_pred = [p['prediction'] for p in predictions_with_labels]
+
+        from sklearn.metrics import accuracy_score, precision_score, recall_score
+
+        return {
+            'accuracy': accuracy_score(y_true, y_pred),
+            'precision': precision_score(y_true, y_pred),
+            'recall': recall_score(y_true, y_pred),
+            'sample_size': len(predictions_with_labels)
+        }
+
+    def detect_model_drift(self, threshold=0.1):
+        """Detect if model performance is degrading"""
+        metrics = self.calculate_metrics()
+
+        if metrics.get('accuracy', 1.0) < 0.8:
+            return {
+                'drift_detected': True,
+                'reason': 'accuracy_drop',
+                'current_accuracy': metrics['accuracy'],
+                'action': 'retrain_model'
+            }
+
+        return {'drift_detected': False}
+```
+
+> **Important**: Monitor model performance in production and retrain when accuracy degrades.
+
+## Best Practices
+
+### 1. Start with Simple Models
+
+```python
+# Start simple
+from sklearn.tree import DecisionTreeClassifier
+simple_model = DecisionTreeClassifier(max_depth=5)
+
+# Graduate to complex
+from sklearn.ensemble import GradientBoostingClassifier
+advanced_model = GradientBoostingClassifier(n_estimators=100)
+```
+
+### 2. Handle Imbalanced Data
+
+```python
+from imblearn.over_sampling import SMOTE
+
+def handle_imbalance(X, y):
+    """Handle imbalanced classes"""
+    # Original distribution
+    print(f"Original: {Counter(y)}")
+
+    # Apply SMOTE
+    smote = SMOTE(random_state=42)
+    X_resampled, y_resampled = smote.fit_resample(X, y)
+
+    # New distribution
+    print(f"Resampled: {Counter(y_resampled)}")
+
+    return X_resampled, y_resampled
+```
+
+### 3. Explain Predictions
+
+```python
+import shap
+
+def explain_prediction(model, X, feature_names):
+    """Explain model prediction using SHAP"""
+    explainer = shap.TreeExplainer(model)
+    shap_values = explainer.shap_values(X)
+
+    # Get feature importance for specific prediction
+    feature_importance = dict(zip(feature_names, shap_values[0]))
+
+    return {
+        'top_factors': sorted(
+            feature_importance.items(),
+            key=lambda x: abs(x[1]),
+            reverse=True
+        )[:5]
+    }
+```
+
+> **Key Point**: Explainable AI is crucial for security analysts to trust and act on ML predictions.
+
+## Conclusion
+
+Machine learning dramatically enhances threat detection capabilities. Start with simple use cases, measure results, and gradually expand ML adoption across your SOC.
+
+> **Remember**: ML augments human analysts, it doesn't replace them. Combine machine intelligence with human expertise for best results.

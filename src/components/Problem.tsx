@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { ServerCrash, BellOff, Workflow } from "lucide-react";
+import { BellRing, SearchAlert, ArrowBigDownDash, EyeOff } from "lucide-react";
 import { FadeUp } from "./animate/FadeUp";
 import { ShineBorder } from "./ui/shine-border";
 
@@ -8,21 +8,27 @@ export default function Problem() {
   const problems = [
     {
       key: "scale",
-      icon: ServerCrash,
+      icon: BellRing,
       title: t("cards.scale.title"),
       description: t("cards.scale.description"),
     },
     {
       key: "noise",
-      icon: BellOff,
+      icon: SearchAlert,
       title: t("cards.noise.title"),
       description: t("cards.noise.description"),
     },
     {
       key: "automation",
-      icon: Workflow,
+      icon: ArrowBigDownDash,
       title: t("cards.automation.title"),
       description: t("cards.automation.description"),
+    },
+    {
+      key: "blindSpots",
+      icon: EyeOff,
+      title: t("cards.blindSpots.title"),
+      description: t("cards.blindSpots.description"),
     },
   ];
 
@@ -84,7 +90,10 @@ export default function Problem() {
                     variant="slideRight"
                   >
                     <div className="group relative bg-background/40 drop-shadow-2xl rounded-lg p-8 transition-all duration-500 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.1)] hover:-translate-y-1">
-                    <ShineBorder shineColor={["#855CF5", "#C091F0", "#8F38E7"]} duration={18}/>
+                      <ShineBorder
+                        shineColor={["#855CF5", "#C091F0", "#8F38E7"]}
+                        duration={18}
+                      />
                       <div className="flex items-start gap-5">
                         {/* Icon */}
                         <div className="shrink-0 mt-1">
@@ -122,7 +131,10 @@ export default function Problem() {
               {/* Badge */}
               <FadeUp delay={0.3} variant="fadeIn" duration={0.7}>
                 <span className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/5 px-5 py-2 text-sm font-medium text-primary backdrop-blur-sm transition-all duration-300 hover:border-primary/40 hover:bg-primary/10">
-                <ShineBorder shineColor={["#855CF5", "#C091F0", "#8F38E7"]} duration={40} />
+                  <ShineBorder
+                    shineColor={["#855CF5", "#C091F0", "#8F38E7"]}
+                    duration={40}
+                  />
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
@@ -141,8 +153,8 @@ export default function Problem() {
               {/* Subtitle */}
               <FadeUp delay={0.6} variant="fadeUp" duration={0.85}>
                 <p className="text-base leading-relaxed text-muted-foreground/90 max-w-xl">
-                  Lorem Ipsum is simply dummy text of the printing and
-                  typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s
+                  {" "}
+                  {t("problems_disc")}
                 </p>
               </FadeUp>
 

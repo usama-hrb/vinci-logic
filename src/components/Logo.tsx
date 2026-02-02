@@ -5,6 +5,14 @@ import Image from "next/image";
 export function Logo() {
   return (
     <Link href="/" className="text-foreground">
+      <LogoImage />
+    </Link>
+  );
+}
+
+export function LogoImage() {
+  return (
+    <>
       {/* Light mode image */}
       <Image
         className="dark:hidden"
@@ -23,6 +31,6 @@ export function Logo() {
         height={0}
         priority
       />
-    </Link>
+    </>
   );
 }

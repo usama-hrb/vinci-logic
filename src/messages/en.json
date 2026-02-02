@@ -1,8 +1,8 @@
 {
   "hero": {
-    "badge": "Security Operations Platform",
-    "title": "Detection and response as code for modern security operations",
-    "description": "Implement deterministic workflows, triage alerts with agentic AI, and execute response logic directly where your data lives without vendor lock-in.",
+    "badge": "AI-Native SIEM Platform",
+    "title": "The SIEM is Dead Reborn Long Live Vinci Logic",
+    "description": "The AI-native SIEM platform that cuts through the noise. Real threats. Zero fatigue. 90% fewer false positives.",
     "primaryCta": "Request demo",
     "secondaryCta": "View docs",
     "video": "See Vinci in action"
@@ -17,8 +17,8 @@
     "demo": "Request Demo"
   },
   "why": {
-    "why_title": "Why Vinci Logic?",
-    "why_subtitle": "A modern security operations platform built for scale, clarity, and control.",
+    "why_title": "Detection That Thinks. Triage That Works.",
+    "why_subtitle": "Vinci Logic isn't another dashboard on top of your problems. It's a fundamental rethinking of how security operations should work—built from the ground up with AI at its core.",
     "cards": {
       "code": {
         "title": "Detection & Response as Code",
@@ -35,48 +35,58 @@
     }
   },
   "problems": {
-    "problems_title": "Security teams are overwhelmed",
+    "problems_title": "The old SIEM model failed your SOC.",
     "problems_subtitle": "Modern SOCs face challenges that legacy tools simply can't solve.",
     "cards": {
       "scale": {
-        "title": "Scale Breaks Legacy Architectures",
-        "description": "Alert volume and data growth exceed the limits of centralized ingestion and manual triage models."
+        "title": "Alert Overload",
+        "description": "Drowning in thousands of notifications that lead nowhere. Your SOC can't keep up with the noise."
       },
       "noise": {
-        "title": "Too Much Noise, Not Enough Signal",
-        "description": "Static rules generate excessive alerts, forcing teams to throttle detections and accept blind spots."
+        "title": "False Positive Fatigue",
+        "description": "Your best analysts are burned out chasing ghosts. Real threats get lost in the noise."
       },
       "automation": {
-        "title": "Automation Without Control Fails",
-        "description": "Brittle SOAR playbooks are complex to maintain and difficult to trust during high-risk incidents."
+        "title": "Slow Investigations",
+        "description": "Hours spent correlating data across tools that should take seconds. Time is the enemy."
+      },
+      "blindSpots": {
+        "title": "Blind Spots",
+        "description": "Log sprawl across clouds, endpoints, and SaaS—with no unified view of your attack surface."
       }
     },
     "problems_badge": "The SOC Reality",
-    "problems_header": "Lorem Ipsum is simply dummy text of the printing and typesetting industry."
+    "problems_header": "Your SIEM is Broken. You Know It.",
+    "problems_disc": "Legacy SIEMs generate thousands of alerts. Your analysts triage hundreds. Real threats slip through. Most security teams ignore 70% of their alerts because they don't have the resources to investigate them all."
   },
   "how": {
     "how_title": "How Vinci Logic Works",
-    "how_subtitle": "Vinci Logic runs detections where my data lives, uses code + workflows, and helps analysts respond faster with AI  without taking control away.",
+    "how_subtitle": "From Log to Resolution in Milliseconds",
     "cards": {
       "step1": {
         "badge": "Step 1",
-        "title": "Detection & Response as Code",
-        "description": "Define, version, and deploy detections and response logic like software consistent, auditable, and scalable."
+        "title": "Unified Ingestion",
+        "description": "Connect your entire stack in minutes. Cloud, on-prem, SaaS, endpoints—Vinci Logic normalizes and enriches data from 100+ integrations automatically."
       },
       "step2": {
         "badge": "Step 2",
-        "title": "Runs Where Your Data Lives",
-        "description": "Execute detection logic directly on OpenSearch, ClickHouse, Spark, and more no data duplication, no lock-in."
+        "title": "Behavioral Detection",
+        "description": "Rules catch known threats. Behavioral analysis catches everything else. Our detection engine combines signature-based rules, ML anomaly detection, and threat intelligence for comprehensive coverage."
       },
       "step3": {
         "badge": "Step 3",
-        "title": "Global, Distributed by Design",
-        "description": "Run detections and response logic directly where your data lives across regions and environments without duplication or lock-in."
+        "title": "Smart Prioritization",
+        "description": "Not all alerts deserve attention. Vinci Logic scores every detection based on asset criticality, threat context, and kill chain progression—so you always know where to look first."
       },
       "step4": {
         "badge": "Step 4",
-        "title": "Global, Distributed by Design",
-        "description": "Run detections and response logic directly where your data lives across regions and environments without duplication or lock-in."
+        "title": "Guided Investigation",
+        "description": "When human judgment is required, we make it fast. Pre-correlated evidence, timeline views, and AI-assisted analysis reduce investigation time from hours to minutes."
+      },
+      "step5": {
+        "badge": "Step 5",
+        "title": "Orchestrated Response",
+        "description": "Close the loop. Trigger automated containment, enrich cases with context, and maintain audit trails—all from a single pane of glass."
       }
     }
   }

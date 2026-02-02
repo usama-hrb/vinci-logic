@@ -1,0 +1,875 @@
+---
+title: Integrations
+description: Connect Vinci with your existing security tools and enterprise systems
+icon: Puzzle
+---
+
+# Integrations
+
+Vinci integrates with hundreds of security tools, cloud platforms, and enterprise systems. This guide covers integration setup, data flow configuration, and best practices.
+
+## Integration Categories
+
+### Security Tools
+
+- SIEM systems (Splunk, QRadar, ArcSight)
+- EDR/XDR platforms (CrowdStrike, SentinelOne, Microsoft Defender)
+- Firewalls and network security (Palo Alto, Fortinet, Cisco)
+- Email security (Proofpoint, Mimecast)
+- Cloud security (AWS Security Hub, Azure Sentinel, GCP Security Command Center)
+
+### IT Service Management
+
+- ServiceNow
+- Jira Service Management
+- PagerDuty
+- Slack
+- Microsoft Teams
+
+### Threat Intelligence
+
+- MISP
+- AlienVault OTX
+- Recorded Future
+- ThreatConnect
+- Anomali
+
+### Identity and Access
+
+- Active Directory / LDAP
+- Okta
+- Azure AD
+- Duo Security
+
+## Cloud Platform Integrations
+
+### AWS Integration
+
+#### Setup
+
+```bash
+# Install AWS integration
+vinci integrations install aws
+
+# Configure credentials
+vinci integrations configure aws \
+  --access-key-id "${AWS_ACCESS_KEY_ID}" \
+  --secret-access-key "${AWS_SECRET_ACCESS_KEY}" \
+  --regions "us-east-1,us-west-2,eu-west-1"
+```
+
+#### Data Sources
+
+```yaml
+aws_integration:
+  enabled: true
+  account_id: "123456789012"
+  regions:
+    - us-east-1
+    - us-west-2
+    - eu-west-1
+
+  data_sources:
+    cloudtrail:
+      enabled: true
+      s3_bucket: "company-cloudtrail-logs"
+      event_categories:
+        - management
+        - data
+        - insights
+
+    guardduty:
+      enabled: true
+      finding_types:
+        - Recon
+        - CredentialAccess
+        - Persistence
+        - PrivilegeEscalation
+      severity_threshold: "medium"
+
+    vpc_flow_logs:
+      enabled: true
+      s3_bucket: "company-vpc-flow-logs"
+      log_format: "custom"
+
+    security_hub:
+      enabled: true
+      standard_subscriptions:
+        - AWS Foundational Security Best Practices
+        - CIS AWS Foundations Benchmark
+
+    waf:
+      enabled: true
+      web_acls:
+        - production-waf
+        - staging-waf
+```
+
+#### Response Actions
+
+```javascript
+// Available AWS response actions
+const awsActions = {
+  // EC2
+  "aws.ec2.isolate_instance": {
+    description: "Replace security group to isolate instance",
+    parameters: ["instance_id", "forensics_sg_id"],
+  },
+
+  "aws.ec2.snapshot_volume": {
+    description: "Create EBS snapshot for forensics",
+    parameters: ["volume_id", "description"],
+  },
+
+  // IAM
+  "aws.iam.disable_user": {
+    description: "Disable IAM user access",
+    parameters: ["username"],
+  },
+
+  "aws.iam.revoke_sessions": {
+    description: "Revoke all active sessions",
+    parameters: ["username"],
+  },
+
+  // S3
+  "aws.s3.block_public_access": {
+    description: "Enable S3 block public access",
+    parameters: ["bucket_name"],
+  },
+
+  // Lambda
+  "aws.lambda.update_function": {
+    description: "Update Lambda function code/config",
+    parameters: ["function_name", "action"],
+  },
+};
+
+// Example: Respond to compromised EC2 instance
+await vinci.integrations.aws.executeAction("aws.ec2.isolate_instance", {
+  instance_id: "i-1234567890abcdef0",
+  forensics_sg_id: "sg-forensics",
+  create_snapshot: true,
+  notify: ["soc-team@company.com"],
+});
+```
+
+### Azure Integration
+
+#### Setup
+
+```bash
+# Install Azure integration
+vinci integrations install azure
+
+# Authenticate with Azure AD
+vinci integrations configure azure \
+  --tenant-id "${AZURE_TENANT_ID}" \
+  --client-id "${AZURE_CLIENT_ID}" \
+  --client-secret "${AZURE_CLIENT_SECRET}" \
+  --subscription-id "${AZURE_SUBSCRIPTION_ID}"
+```
+
+#### Data Sources
+
+```yaml
+azure_integration:
+  enabled: true
+  tenant_id: "your-tenant-id"
+  subscriptions:
+    - subscription-id-1
+    - subscription-id-2
+
+  data_sources:
+    activity_logs:
+      enabled: true
+      categories:
+        - Administrative
+        - Security
+        - ServiceHealth
+        - Alert
+
+    azure_ad_logs:
+      enabled: true
+      log_types:
+        - SignIns
+        - AuditLogs
+        - RiskyUsers
+        - UserRiskEvents
+
+    security_center:
+      enabled: true
+      alert_severity: ["High", "Medium"]
+      recommendations: true
+
+    sentinel:
+      enabled: true
+      workspace_id: "workspace-id"
+      incident_sync: bidirectional
+
+    network_watcher:
+      enabled: true
+      nsg_flow_logs: true
+```
+
+### Google Cloud Platform Integration
+
+#### Setup
+
+```bash
+# Install GCP integration
+vinci integrations install gcp
+
+# Configure service account
+vinci integrations configure gcp \
+  --project-id "${GCP_PROJECT_ID}" \
+  --credentials-file "./gcp-service-account.json"
+```
+
+#### Data Sources
+
+```yaml
+gcp_integration:
+  enabled: true
+  project_id: "your-project-id"
+
+  data_sources:
+    cloud_logging:
+      enabled: true
+      log_types:
+        - cloudaudit.googleapis.com/activity
+        - cloudaudit.googleapis.com/data_access
+        - cloudaudit.googleapis.com/system_event
+
+    security_command_center:
+      enabled: true
+      finding_categories:
+        - MEDIUM_RISK_ONE
+        - HIGH_RISK_ONE
+        - CRITICAL_RISK_ONE
+
+    vpc_flow_logs:
+      enabled: true
+      aggregation_interval: "5m"
+
+    cloud_armor:
+      enabled: true
+      security_policies:
+        - production-policy
+```
+
+## EDR/XDR Integrations
+
+### CrowdStrike Integration
+
+```yaml
+crowdstrike:
+  enabled: true
+  api_base_url: "https://api.crowdstrike.com"
+  client_id: "${CROWDSTRIKE_CLIENT_ID}"
+  client_secret: "${CROWDSTRIKE_CLIENT_SECRET}"
+
+  data_sources:
+    detections:
+      enabled: true
+      severity: ["critical", "high", "medium"]
+      sync_interval: "1m"
+
+    incidents:
+      enabled: true
+      auto_import: true
+
+    indicators:
+      enabled: true
+      ioc_types: ["sha256", "md5", "domain", "ip"]
+
+  response_actions:
+    contain_host:
+      enabled: true
+      approval_required: false
+
+    lift_containment:
+      enabled: true
+      approval_required: true
+
+    kill_process:
+      enabled: true
+      approval_required: false
+```
+
+### Microsoft Defender Integration
+
+```yaml
+microsoft_defender:
+  enabled: true
+  tenant_id: "${AZURE_TENANT_ID}"
+  client_id: "${DEFENDER_CLIENT_ID}"
+  client_secret: "${DEFENDER_CLIENT_SECRET}"
+
+  products:
+    endpoint:
+      enabled: true
+      alert_severity: ["High", "Medium"]
+
+    office365:
+      enabled: true
+      workloads:
+        - Exchange
+        - SharePoint
+        - Teams
+
+    cloud_apps:
+      enabled: true
+      alert_categories:
+        - ThreatProtection
+        - InformationProtection
+
+  response_actions:
+    isolate_machine:
+      enabled: true
+      isolation_type: "full"
+
+    run_antivirus_scan:
+      enabled: true
+      scan_type: "quick"
+
+    collect_investigation_package:
+      enabled: true
+```
+
+## SIEM Integrations
+
+### Splunk Integration
+
+#### Data Forwarding to Splunk
+
+```yaml
+splunk_forward:
+  enabled: true
+  host: "splunk.company.com"
+  port: 9997
+  protocol: "tcp"
+  use_ssl: true
+
+  data_streams:
+    - name: "vinci_alerts"
+      source: "vinci:alerts"
+      sourcetype: "vinci:alert"
+      index: "security"
+
+    - name: "vinci_incidents"
+      source: "vinci:incidents"
+      sourcetype: "vinci:incident"
+      index: "security"
+
+    - name: "vinci_audit"
+      source: "vinci:audit"
+      sourcetype: "vinci:audit"
+      index: "audit"
+```
+
+#### Data Collection from Splunk
+
+```yaml
+splunk_collect:
+  enabled: true
+  host: "splunk.company.com"
+  port: 8089
+  username: "${SPLUNK_USER}"
+  password: "${SPLUNK_PASS}"
+
+  searches:
+    - name: "Notable Events"
+      search: "index=notable | fields *"
+      interval: "5m"
+      earliest_time: "-5m"
+
+    - name: "Authentication Failures"
+      search: "index=auth action=failure | stats count by user, src"
+      interval: "10m"
+      earliest_time: "-10m"
+```
+
+### QRadar Integration
+
+```yaml
+qradar:
+  enabled: true
+  console_url: "https://qradar.company.com"
+  api_token: "${QRADAR_API_TOKEN}"
+
+  data_collection:
+    offenses:
+      enabled: true
+      severity: [7, 8, 9, 10]
+      sync_interval: "2m"
+      auto_close: false
+
+    ariel_searches:
+      enabled: true
+      searches:
+        - name: "High Risk Events"
+          aql: "SELECT * FROM events WHERE severity >= 7 LAST 5 MINUTES"
+          interval: "5m"
+
+  data_forwarding:
+    events:
+      enabled: true
+      log_source_id: 123
+      event_types:
+        - vinci_alert
+        - vinci_incident
+```
+
+## Ticketing System Integrations
+
+### ServiceNow
+
+```yaml
+servicenow:
+  enabled: true
+  instance: "company.service-now.com"
+  username: "${SERVICENOW_USER}"
+  password: "${SERVICENOW_PASS}"
+
+  incident_sync:
+    bidirectional: true
+    auto_create:
+      enabled: true
+      severity_threshold: "high"
+
+    field_mapping:
+      vinci_field: servicenow_field
+      title: short_description
+      description: description
+      severity: impact
+      assigned_to: assigned_to
+      status: incident_state
+
+    status_mapping:
+      new: 1
+      investigating: 2
+      contained: 2
+      resolved: 6
+      closed: 7
+
+  cmdb_integration:
+    enabled: true
+    asset_sync: true
+    sync_interval: "1h"
+```
+
+### Jira
+
+```yaml
+jira:
+  enabled: true
+  url: "https://company.atlassian.net"
+  email: "${JIRA_EMAIL}"
+  api_token: "${JIRA_API_TOKEN}"
+
+  project: "SEC"
+  issue_type: "Security Incident"
+
+  auto_create:
+    enabled: true
+    conditions: "severity in ['critical', 'high']"
+
+  field_mapping:
+    title: summary
+    description: description
+    severity: priority
+    tags: labels
+
+  custom_fields:
+    customfield_10001: "{{incident.mitre_tactics}}"
+    customfield_10002: "{{incident.affected_assets}}"
+
+  workflow_sync:
+    enabled: true
+    status_mapping:
+      new: "Open"
+      investigating: "In Progress"
+      contained: "In Progress"
+      resolved: "Resolved"
+      closed: "Closed"
+```
+
+## Communication Integrations
+
+### Slack
+
+```javascript
+// Configure Slack integration
+await vinci.integrations.slack.configure({
+  workspace: "company",
+  bot_token: process.env.SLACK_BOT_TOKEN,
+
+  channels: {
+    alerts: "#soc-alerts",
+    incidents: "#soc-incidents",
+    critical: "#soc-critical",
+  },
+
+  notifications: {
+    new_incident: {
+      enabled: true,
+      severity: ["critical", "high"],
+      channel: "#soc-incidents",
+      mention: "@soc-team",
+    },
+
+    incident_update: {
+      enabled: true,
+      thread_replies: true,
+      channel: "#soc-incidents",
+    },
+
+    sla_breach: {
+      enabled: true,
+      channel: "#soc-critical",
+      mention: "@soc-manager",
+    },
+  },
+
+  interactive: {
+    enabled: true,
+    actions: [
+      "acknowledge_alert",
+      "escalate_incident",
+      "assign_to_me",
+      "close_incident",
+    ],
+  },
+});
+
+// Send custom notification
+await vinci.integrations.slack.sendMessage({
+  channel: "#soc-incidents",
+  text: "New critical incident detected",
+  blocks: [
+    {
+      type: "header",
+      text: {
+        type: "plain_text",
+        text: "🚨 Critical Security Incident",
+      },
+    },
+    {
+      type: "section",
+      fields: [
+        {
+          type: "mrkdwn",
+          text: `*Incident:* INC-2026-001`,
+        },
+        {
+          type: "mrkdwn",
+          text: `*Severity:* Critical`,
+        },
+        {
+          type: "mrkdwn",
+          text: `*Type:* Ransomware`,
+        },
+        {
+          type: "mrkdwn",
+          text: `*Status:* Investigating`,
+        },
+      ],
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "View Incident",
+          },
+          url: "https://vinci.company.com/incidents/INC-2026-001",
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "Assign to Me",
+          },
+          action_id: "assign_to_me",
+        },
+      ],
+    },
+  ],
+});
+```
+
+### Microsoft Teams
+
+```yaml
+microsoft_teams:
+  enabled: true
+  webhook_url: "${TEAMS_WEBHOOK_URL}"
+
+  notifications:
+    new_alert:
+      enabled: true
+      severity: ["critical", "high"]
+      card_type: "adaptive"
+
+    incident_created:
+      enabled: true
+      severity: ["critical", "high"]
+      include_actions: true
+
+    incident_resolved:
+      enabled: true
+      severity: ["critical", "high"]
+```
+
+### PagerDuty
+
+```yaml
+pagerduty:
+  enabled: true
+  api_key: "${PAGERDUTY_API_KEY}"
+
+  escalation:
+    critical_incidents:
+      enabled: true
+      service_id: "P123ABC"
+      urgency: "high"
+
+    after_hours:
+      enabled: true
+      service_id: "P456DEF"
+      schedule: "24/7 On-Call"
+
+  incident_sync:
+    bidirectional: true
+    auto_resolve: true
+```
+
+## Threat Intelligence Integrations
+
+### MISP
+
+```yaml
+misp:
+  enabled: true
+  url: "https://misp.company.com"
+  api_key: "${MISP_API_KEY}"
+  verify_ssl: true
+
+  import:
+    enabled: true
+    tags: ["osint", "apt", "malware"]
+    threat_levels: ["high", "medium"]
+    published_only: true
+    sync_interval: "15m"
+
+  export:
+    enabled: true
+    auto_export_iocs: true
+    distribution: 1 # This community only
+    threat_level: 2 # Medium
+
+  enrichment:
+    enabled: true
+    auto_enrich_alerts: true
+```
+
+### AlienVault OTX
+
+```yaml
+alienvault_otx:
+  enabled: true
+  api_key: "${OTX_API_KEY}"
+
+  subscriptions:
+    - pulse_id: "abc123"
+      name: "APT Groups"
+    - pulse_id: "def456"
+      name: "Ransomware IOCs"
+
+  enrichment:
+    enabled: true
+    indicator_types:
+      - IPv4
+      - IPv6
+      - domain
+      - hostname
+      - FileHash-MD5
+      - FileHash-SHA256
+```
+
+## Custom Integrations
+
+### Webhook Integration
+
+```javascript
+// Create custom webhook integration
+await vinci.integrations.webhook.create({
+  name: "Custom Security Tool",
+  url: "https://api.security-tool.com/webhook",
+  method: "POST",
+  headers: {
+    Authorization: "Bearer ${CUSTOM_TOOL_TOKEN}",
+    "Content-Type": "application/json",
+  },
+
+  triggers: {
+    on_alert: {
+      enabled: true,
+      severity: ["critical", "high"],
+      payload: {
+        alert_id: "{{alert.id}}",
+        severity: "{{alert.severity}}",
+        title: "{{alert.title}}",
+        timestamp: "{{alert.timestamp}}",
+        details: "{{alert.description}}",
+      },
+    },
+
+    on_incident_created: {
+      enabled: true,
+      payload: {
+        incident_id: "{{incident.id}}",
+        type: "{{incident.type}}",
+        severity: "{{incident.severity}}",
+        affected_systems: "{{incident.affected_assets}}",
+      },
+    },
+  },
+
+  retry: {
+    enabled: true,
+    max_attempts: 3,
+    backoff: "exponential",
+  },
+});
+```
+
+### REST API Integration
+
+```javascript
+// Generic REST API integration
+const customAPI = await vinci.integrations.api.create({
+  name: "Custom CMDB",
+  base_url: "https://cmdb.company.com/api/v1",
+  auth: {
+    type: "oauth2",
+    token_url: "https://auth.company.com/oauth/token",
+    client_id: process.env.CMDB_CLIENT_ID,
+    client_secret: process.env.CMDB_CLIENT_SECRET,
+  },
+
+  endpoints: {
+    get_asset: {
+      method: "GET",
+      path: "/assets/{asset_id}",
+      parameters: ["asset_id"],
+      response_mapping: {
+        id: "asset_id",
+        hostname: "hostname",
+        ip_address: "ip",
+        owner: "owner_email",
+      },
+    },
+
+    update_risk_score: {
+      method: "POST",
+      path: "/assets/{asset_id}/risk",
+      parameters: ["asset_id", "risk_score", "reason"],
+      body: {
+        risk_score: "{{risk_score}}",
+        updated_by: "vinci-soc",
+        reason: "{{reason}}",
+      },
+    },
+  },
+});
+
+// Use custom integration
+const asset = await customAPI.call("get_asset", {
+  asset_id: "server-01",
+});
+
+await customAPI.call("update_risk_score", {
+  asset_id: "server-01",
+  risk_score: 85,
+  reason: "Critical vulnerability detected",
+});
+```
+
+## Integration Management
+
+### Testing Integrations
+
+```bash
+# Test integration connectivity
+vinci integrations test aws
+vinci integrations test slack
+vinci integrations test crowdstrike
+
+# Validate configuration
+vinci integrations validate --all
+
+# View integration status
+vinci integrations status
+```
+
+### Monitoring Integrations
+
+```javascript
+// Get integration health metrics
+const health = await vinci.integrations.getHealth();
+
+health.forEach((integration) => {
+  console.log(`
+    Integration: ${integration.name}
+    Status: ${integration.status}
+    Last Sync: ${integration.last_sync}
+    Events Processed: ${integration.events_processed}
+    Errors (24h): ${integration.error_count}
+    Latency: ${integration.avg_latency}ms
+  `);
+});
+```
+
+## Best Practices
+
+### Security
+
+- Use dedicated service accounts with minimal permissions
+- Rotate API keys regularly
+- Store credentials in secrets management system
+- Enable audit logging for all integrations
+- Use TLS/SSL for all connections
+
+### Performance
+
+- Configure appropriate polling intervals
+- Use webhooks when available instead of polling
+- Implement rate limiting and backoff
+- Monitor integration latency
+- Set reasonable timeout values
+
+### Reliability
+
+- Enable retry mechanisms
+- Implement circuit breakers
+- Monitor error rates
+- Set up alerting for integration failures
+- Maintain fallback procedures
+
+## Next Steps
+
+<Cards>
+  <Card title="API Reference" href="/docs/api-reference">
+    Explore the REST API documentation
+  </Card>
+  <Card title="Playbooks" href="/docs/playbooks">
+    Automate workflows with integrations
+  </Card>
+  <Card title="Configuration" href="/docs/configuration">
+    Advanced configuration options
+  </Card>
+</Cards>

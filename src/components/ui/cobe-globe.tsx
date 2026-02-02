@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react"
-import createGlobe from "cobe"
-import { useSpring } from "react-spring"
+import { useCallback, useEffect, useRef, useState } from "react";
+import createGlobe from "cobe";
+import { useSpring } from "react-spring";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
 
 type CobeVariant =
   | "default"
@@ -13,45 +13,45 @@ type CobeVariant =
   | "auto-draggable"
   | "auto-rotation"
   | "rotate-to-location"
-  | "scaled"
+  | "scaled";
 
 interface Location {
-  name: string
-  lat?: number
-  long?: number
-  emoji?: string
+  name: string;
+  lat?: number;
+  long?: number;
+  emoji?: string;
 }
 
 interface GeocodeResult {
-  lat: number
-  lng: number
-  display_name: string
+  lat: number;
+  lng: number;
+  display_name: string;
 }
 
 interface CobeProps {
-  variant?: CobeVariant
-  className?: string
-  style?: React.CSSProperties
-  locations?: Location[]
+  variant?: CobeVariant;
+  className?: string;
+  style?: React.CSSProperties;
+  locations?: Location[];
   // Globe configuration settings
-  phi?: number
-  theta?: number
-  mapSamples?: number
-  mapBrightness?: number
-  mapBaseBrightness?: number
-  diffuse?: number
-  dark?: number
-  baseColor?: string
-  markerColor?: string
-  markerSize?: number
-  glowColor?: string
-  scale?: number
-  offsetX?: number
-  offsetY?: number
-  opacity?: number
+  phi?: number;
+  theta?: number;
+  mapSamples?: number;
+  mapBrightness?: number;
+  mapBaseBrightness?: number;
+  diffuse?: number;
+  dark?: number;
+  baseColor?: string;
+  markerColor?: string;
+  markerSize?: number;
+  glowColor?: string;
+  scale?: number;
+  offsetX?: number;
+  offsetY?: number;
+  opacity?: number;
 }
 
-type CobeState = Record<string, unknown>
+type CobeState = Record<string, unknown>;
 
 export function Cobe({
   variant = "default",
@@ -80,12 +80,12 @@ export function Cobe({
   offsetY = 0.0,
   opacity = 0.7,
 }: CobeProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const pointerInteracting = useRef<number | null>(null)
-  const pointerInteractionMovement = useRef<number>(0)
-  const focusRef = useRef<[number, number]>([0, 0])
-  const [customLocations, setCustomLocations] = useState<Location[]>([])
-  const [isInitializing, setIsInitializing] = useState(true)
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pointerInteracting = useRef<number | null>(null);
+  const pointerInteractionMovement = useRef<number>(0);
+  const focusRef = useRef<[number, number]>([0, 0]);
+  const [customLocations, setCustomLocations] = useState<Location[]>([]);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   const [{ r }, api] = useSpring<{ r: number }>(() => ({
     r: 0,
@@ -95,103 +95,103 @@ export function Cobe({
       friction: 40,
       precision: 0.001,
     },
-  }))
+  }));
 
   const locationToAngles = (lat: number, long: number): [number, number] => {
     return [
       Math.PI - ((long * Math.PI) / 180 - Math.PI / 2),
       (lat * Math.PI) / 180,
-    ] as [number, number]
-  }
+    ] as [number, number];
+  };
 
   const hexToRgb = (hex: string): [number, number, number] => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? [
           parseInt(result[1], 16) / 255,
           parseInt(result[2], 16) / 255,
           parseInt(result[3], 16) / 255,
         ]
-      : [0, 0, 0]
-  }
+      : [0, 0, 0];
+  };
 
   const geocodeLocation = async (
-    query: string
+    query: string,
   ): Promise<GeocodeResult | null> => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`
-      )
-      const data = await response.json()
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+      );
+      const data = await response.json();
 
       if (data && data.length > 0) {
         return {
           lat: parseFloat(data[0].lat),
           lng: parseFloat(data[0].lon),
           display_name: data[0].display_name,
-        }
+        };
       }
-      return null
+      return null;
     } catch (error) {
-      console.error("Geocoding error:", error)
-      return null
+      console.error("Geocoding error:", error);
+      return null;
     }
-  }
+  };
 
   const geocodeLocationList = useCallback(async (locationList: Location[]) => {
-    const geocodedLocations: Location[] = []
+    const geocodedLocations: Location[] = [];
 
     for (const location of locationList) {
       if (location.lat && location.long) {
         // Already has coordinates
-        geocodedLocations.push(location)
+        geocodedLocations.push(location);
       } else {
         // Need to geocode
-        const result = await geocodeLocation(location.name)
+        const result = await geocodeLocation(location.name);
         if (result) {
           geocodedLocations.push({
             ...location,
             lat: result.lat,
             long: result.lng,
-          })
+          });
         }
       }
     }
 
-    return geocodedLocations
-  }, [])
+    return geocodedLocations;
+  }, []);
 
   // Initialize locations on component mount
   useEffect(() => {
     const initializeLocations = async () => {
       if (variant === "rotate-to-location" && locations.length > 0) {
-        setIsInitializing(true)
-        const geocoded = await geocodeLocationList(locations)
-        setCustomLocations(geocoded)
-        setIsInitializing(false)
+        setIsInitializing(true);
+        const geocoded = await geocodeLocationList(locations);
+        setCustomLocations(geocoded);
+        setIsInitializing(false);
       }
-    }
+    };
 
-    initializeLocations()
-  }, [variant, locations, geocodeLocationList])
+    initializeLocations();
+  }, [variant, locations, geocodeLocationList]);
 
   useEffect(() => {
-    let phi = 0
-    let width = 0
-    let currentPhi = 0
-    let currentTheta = 0
-    const doublePi = Math.PI * 2
+    let phi = 0;
+    let width = 0;
+    let currentPhi = 0;
+    let currentTheta = 0;
+    const doublePi = Math.PI * 2;
 
     const onResize = () => {
       if (canvasRef.current) {
-        width = canvasRef.current.offsetWidth
+        width = canvasRef.current.offsetWidth;
       }
-    }
+    };
 
-    window.addEventListener("resize", onResize)
-    onResize()
+    window.addEventListener("resize", onResize);
+    onResize();
 
-    if (!canvasRef.current) return
+    if (!canvasRef.current) return;
 
     const globe = createGlobe(canvasRef.current, {
       devicePixelRatio: 2,
@@ -303,57 +303,57 @@ export function Cobe({
       onRender: (state: CobeState) => {
         switch (variant) {
           case "default":
-            state.phi = phi + r.get()
-            phi += 0.005
-            break
+            state.phi = phi + r.get();
+            phi += 0.005;
+            break;
           case "draggable":
-            state.phi = r.get()
-            break
+            state.phi = r.get();
+            break;
           case "auto-draggable":
             if (!pointerInteracting.current) {
-              phi += 0.005
+              phi += 0.005;
             }
-            state.phi = phi + r.get()
-            break
+            state.phi = phi + r.get();
+            break;
           case "auto-rotation":
-            state.phi = phi
-            phi += 0.005
-            break
+            state.phi = phi;
+            phi += 0.005;
+            break;
           case "rotate-to-location":
-            state.phi = currentPhi
-            state.theta = currentTheta
-            const [focusPhi, focusTheta] = focusRef.current
-            const distPositive = (focusPhi - currentPhi + doublePi) % doublePi
-            const distNegative = (currentPhi - focusPhi + doublePi) % doublePi
+            state.phi = currentPhi;
+            state.theta = currentTheta;
+            const [focusPhi, focusTheta] = focusRef.current;
+            const distPositive = (focusPhi - currentPhi + doublePi) % doublePi;
+            const distNegative = (currentPhi - focusPhi + doublePi) % doublePi;
             if (distPositive < distNegative) {
-              currentPhi += distPositive * 0.08
+              currentPhi += distPositive * 0.08;
             } else {
-              currentPhi -= distNegative * 0.08
+              currentPhi -= distNegative * 0.08;
             }
-            currentTheta = currentTheta * 0.92 + focusTheta * 0.08
-            break
+            currentTheta = currentTheta * 0.92 + focusTheta * 0.08;
+            break;
           case "scaled":
             // No rotation for scaled variant
-            break
+            break;
         }
 
-        state.width = width * 2
-        state.height = variant === "scaled" ? width * 2 * 0.4 : width * 2
+        state.width = width * 2;
+        state.height = variant === "scaled" ? width * 2 * 0.4 : width * 2;
       },
-    })
+    });
 
     if (canvasRef.current) {
       setTimeout(() => {
         if (canvasRef.current) {
-          canvasRef.current.style.opacity = opacity.toString()
+          canvasRef.current.style.opacity = opacity.toString();
         }
-      })
+      });
     }
 
     return () => {
-      globe.destroy()
-      window.removeEventListener("resize", onResize)
-    }
+      globe.destroy();
+      window.removeEventListener("resize", onResize);
+    };
   }, [
     variant,
     r,
@@ -373,7 +373,7 @@ export function Cobe({
     offsetX,
     offsetY,
     opacity,
-  ])
+  ]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (
@@ -382,10 +382,10 @@ export function Cobe({
       variant === "default"
     ) {
       pointerInteracting.current =
-        e.clientX - pointerInteractionMovement.current
-      if (canvasRef.current) canvasRef.current.style.cursor = "grabbing"
+        e.clientX - pointerInteractionMovement.current;
+      if (canvasRef.current) canvasRef.current.style.cursor = "grabbing";
     }
-  }
+  };
 
   const handlePointerUp = () => {
     if (
@@ -393,10 +393,10 @@ export function Cobe({
       variant === "auto-draggable" ||
       variant === "default"
     ) {
-      pointerInteracting.current = null
-      if (canvasRef.current) canvasRef.current.style.cursor = "grab"
+      pointerInteracting.current = null;
+      if (canvasRef.current) canvasRef.current.style.cursor = "grab";
     }
-  }
+  };
 
   const handlePointerOut = () => {
     if (
@@ -404,10 +404,10 @@ export function Cobe({
       variant === "auto-draggable" ||
       variant === "default"
     ) {
-      pointerInteracting.current = null
-      if (canvasRef.current) canvasRef.current.style.cursor = "grab"
+      pointerInteracting.current = null;
+      if (canvasRef.current) canvasRef.current.style.cursor = "grab";
     }
-  }
+  };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (
@@ -416,13 +416,13 @@ export function Cobe({
         variant === "default") &&
       pointerInteracting.current !== null
     ) {
-      const delta = e.clientX - pointerInteracting.current
-      pointerInteractionMovement.current = delta
+      const delta = e.clientX - pointerInteracting.current;
+      pointerInteractionMovement.current = delta;
       api.start({
         r: delta / 200,
-      })
+      });
     }
-  }
+  };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (
@@ -432,19 +432,19 @@ export function Cobe({
       pointerInteracting.current !== null &&
       e.touches[0]
     ) {
-      const delta = e.touches[0].clientX - pointerInteracting.current
-      pointerInteractionMovement.current = delta
+      const delta = e.touches[0].clientX - pointerInteracting.current;
+      pointerInteractionMovement.current = delta;
       api.start({
         r: delta / 100,
-      })
+      });
     }
-  }
+  };
 
   const handleLocationClick = (lat: number, long: number) => {
     if (variant === "rotate-to-location") {
-      focusRef.current = locationToAngles(lat, long)
+      focusRef.current = locationToAngles(lat, long);
     }
-  }
+  };
 
   const containerStyle = {
     width: "100%",
@@ -453,7 +453,7 @@ export function Cobe({
     margin: "auto",
     position: "relative" as const,
     ...style,
-  }
+  };
 
   const canvasStyle = {
     width: "100%",
@@ -476,7 +476,7 @@ export function Cobe({
         : variant === "scaled"
           ? "8px"
           : undefined,
-  }
+  };
 
   return (
     <div className={cn("", className)} style={containerStyle}>
@@ -513,5 +513,5 @@ export function Cobe({
         </>
       )}
     </div>
-  )
+  );
 }

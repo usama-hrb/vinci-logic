@@ -1,0 +1,826 @@
+---
+title: Best Practices
+description: Security, operational, and architectural best practices for Vinci SOC
+icon: CheckCircle
+---
+
+# Best Practices
+
+This guide provides recommendations for security, operations, and performance optimization when deploying and managing Vinci SOC Platform.
+
+## Security Best Practices
+
+### Access Control
+
+#### Principle of Least Privilege
+
+```yaml
+# Example role configuration
+roles:
+  tier1_analyst:
+    permissions:
+      - view_alerts
+      - acknowledge_alerts
+      - add_comments
+    restrictions:
+      - cannot_close_incidents
+      - cannot_modify_rules
+      - cannot_access_admin
+
+  tier2_analyst:
+    inherits: tier1_analyst
+    additional_permissions:
+      - create_incidents
+      - execute_playbooks
+      - modify_alert_status
+
+  tier3_analyst:
+    inherits: tier2_analyst
+    additional_permissions:
+      - close_incidents
+      - create_detection_rules
+      - access_forensics_tools
+
+  soc_manager:
+    permissions:
+      - "*" # Full access
+    restrictions:
+      - audit_logged # All actions logged
+```
+
+#### Multi-Factor Authentication
+
+```javascript
+// Enforce MFA for all users
+await vinci.security.configureMFA({
+  required: true,
+  methods: ["totp", "webauthn"],
+
+  grace_period: {
+    enabled: true,
+    duration: "7d",
+  },
+
+  exceptions: {
+    service_accounts: false,
+    api_keys: true,
+  },
+
+  backup_codes: {
+    enabled: true,
+    count: 10,
+  },
+});
+```
+
+#### API Key Management
+
+```javascript
+// Rotate API keys regularly
+const rotationPolicy = await vinci.security.configureAPIKeyRotation({
+  auto_rotate: true,
+  rotation_interval: "90d",
+
+  notification: {
+    before_expiry: "7d",
+    channels: ["email", "slack"],
+  },
+
+  restrictions: {
+    max_age: "365d",
+    require_description: true,
+    ip_whitelist: true,
+  },
+});
+
+// Create time-limited API keys
+const tempKey = await vinci.apiKeys.create({
+  name: "Temporary Integration Key",
+  expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+  permissions: ["read_alerts", "read_incidents"],
+  ip_whitelist: ["203.0.113.0/24"],
+});
+```
+
+### Data Protection
+
+#### Encryption
+
+```yaml
+# Encryption configuration
+encryption:
+  # Data at rest
+  at_rest:
+    enabled: true
+    algorithm: "AES-256-GCM"
+    key_management: "aws_kms"
+    key_rotation: "90d"
+
+  # Data in transit
+  in_transit:
+    tls_version: "1.3"
+    cipher_suites:
+      - TLS_AES_256_GCM_SHA384
+      - TLS_CHACHA20_POLY1305_SHA256
+    certificate_validation: true
+
+  # Sensitive fields
+  field_level:
+    enabled: true
+    fields:
+      - "user.password"
+      - "api_keys"
+      - "credentials.*"
+    algorithm: "AES-256-GCM"
+```
+
+#### Data Retention
+
+```yaml
+# Retention policies
+data_retention:
+  alerts:
+    hot_storage: "30d"
+    warm_storage: "365d"
+    cold_storage: "7y"
+    deletion_after: "7y"
+
+  incidents:
+    retention: "7y" # Compliance requirement
+    anonymize_after: "3y"
+
+  logs:
+    security_logs: "2y"
+    audit_logs: "7y"
+    access_logs: "1y"
+
+  compliance:
+    pci_dss: "1y" # Minimum per PCI requirement 10.5.1
+    gdpr: "as_needed" # Right to be forgotten
+    sox: "7y" # Sarbanes-Oxley requirement
+```
+
+#### Data Masking
+
+```javascript
+// Configure PII masking
+await vinci.security.configureMasking({
+  enabled: true,
+
+  rules: [
+    {
+      field_pattern: "*.email",
+      mask_type: "email",
+      preserve_domain: true,
+    },
+    {
+      field_pattern: "*.ssn",
+      mask_type: "full",
+      replacement: "***-**-****",
+    },
+    {
+      field_pattern: "*.credit_card",
+      mask_type: "partial",
+      visible_chars: 4,
+      position: "end",
+    },
+    {
+      field_pattern: "*.ip_address",
+      mask_type: "anonymize",
+      method: "hash",
+    },
+  ],
+
+  exceptions: {
+    roles: ["forensics_analyst", "soc_manager"],
+    requires_justification: true,
+    audit_access: true,
+  },
+});
+```
+
+### Audit Logging
+
+```yaml
+# Comprehensive audit configuration
+audit:
+  enabled: true
+
+  events:
+    # Authentication
+    - user_login
+    - user_logout
+    - failed_login
+    - password_change
+    - mfa_enabled
+    - mfa_disabled
+
+    # Authorization
+    - permission_granted
+    - permission_revoked
+    - role_changed
+    - access_denied
+
+    # Data access
+    - incident_viewed
+    - evidence_accessed
+    - sensitive_data_exported
+
+    # Configuration
+    - setting_changed
+    - rule_created
+    - rule_modified
+    - rule_deleted
+    - integration_configured
+
+    # Actions
+    - playbook_executed
+    - api_call
+    - data_exported
+
+  retention: "7y"
+  immutable: true
+
+  alerting:
+    suspicious_activity:
+      - multiple_failed_logins
+      - privilege_escalation
+      - bulk_data_export
+      - after_hours_access
+```
+
+## Operational Best Practices
+
+### Detection Rule Management
+
+#### Rule Development Lifecycle
+
+```yaml
+# Rule development process
+rule_lifecycle:
+  1_development:
+    environment: "test"
+    validation:
+      - syntax_check
+      - performance_test
+      - false_positive_analysis
+    duration: "7d"
+
+  2_staging:
+    environment: "staging"
+    monitoring: "enabled"
+    feedback_collection: true
+    duration: "14d"
+
+  3_production:
+    environment: "production"
+    gradual_rollout: true
+    rollout_percentage: [10, 25, 50, 100]
+    rollback_threshold:
+      false_positive_rate: ">20%"
+      error_rate: ">5%"
+
+  4_maintenance:
+    review_frequency: "quarterly"
+    deprecation_notice: "30d"
+    sunset_after: "90d_unused"
+```
+
+#### Rule Performance
+
+```javascript
+// Monitor rule performance
+const ruleMetrics = await vinci.detectionRules.getMetrics({
+  timeframe: "30d",
+  include_performance: true,
+});
+
+// Disable underperforming rules
+for (const rule of ruleMetrics.rules) {
+  if (rule.false_positive_rate > 50 || rule.true_positive_count === 0) {
+    await vinci.detectionRules.update(rule.id, {
+      enabled: false,
+      reason: "High false positive rate or no true positives",
+      review_required: true,
+    });
+
+    // Notify team
+    await vinci.notifications.send({
+      channel: "soc-team",
+      message: `Rule "${rule.name}" disabled due to poor performance`,
+      severity: "warning",
+    });
+  }
+}
+```
+
+### Incident Response
+
+#### SLA Configuration
+
+```yaml
+# Service Level Agreements
+sla:
+  critical:
+    response_time: "15m"
+    containment_time: "2h"
+    resolution_time: "4h"
+    escalation:
+      - after: "10m"
+        notify: ["soc_manager"]
+      - after: "30m"
+        notify: ["ciso", "on_call_director"]
+
+  high:
+    response_time: "1h"
+    containment_time: "4h"
+    resolution_time: "8h"
+    escalation:
+      - after: "45m"
+        notify: ["soc_manager"]
+
+  medium:
+    response_time: "4h"
+    containment_time: "8h"
+    resolution_time: "24h"
+
+  low:
+    response_time: "1d"
+    containment_time: "3d"
+    resolution_time: "5d"
+```
+
+#### Playbook Best Practices
+
+```yaml
+# Effective playbook structure
+playbook:
+  name: "Ransomware Response"
+  version: "2.1"
+  last_updated: "2026-01-15"
+
+  metadata:
+    owner: "soc-team@company.com"
+    reviewed_by: "security-architect@company.com"
+    approval_date: "2026-01-10"
+
+  triggers:
+    - incident.type == "ransomware"
+    - alert.rule_name contains "ransomware"
+
+  prerequisites:
+    - access: ["admin_credentials", "isolation_capability"]
+    - tools: ["forensics_toolkit", "backup_access"]
+    - contacts: ["it_manager", "legal_team", "communications_team"]
+
+  steps:
+    - name: "Initial Assessment"
+      actions:
+        - verify_incident
+        - identify_scope
+        - notify_stakeholders
+      approval_required: false
+      timeout: "10m"
+
+    - name: "Immediate Containment"
+      actions:
+        - isolate_affected_systems
+        - disable_user_accounts
+        - block_iocs_at_perimeter
+      approval_required: false
+      critical: true
+
+    - name: "Evidence Collection"
+      actions:
+        - capture_memory_dumps
+        - collect_disk_images
+        - preserve_logs
+      approval_required: false
+      parallel: true
+
+    - name: "Eradication"
+      actions:
+        - remove_malware
+        - patch_vulnerabilities
+        - reset_credentials
+      approval_required: true
+      approvers: ["soc_manager", "it_manager"]
+
+    - name: "Recovery"
+      actions:
+        - restore_from_backup
+        - verify_system_integrity
+        - gradual_service_restoration
+      approval_required: true
+
+    - name: "Post-Incident"
+      actions:
+        - document_lessons_learned
+        - update_defenses
+        - conduct_training
+      deadline: "7d_after_resolution"
+```
+
+### Alert Management
+
+#### Alert Prioritization
+
+```javascript
+// Intelligent alert prioritization
+const prioritizationConfig = {
+  factors: {
+    severity: { weight: 0.3 },
+    asset_criticality: { weight: 0.25 },
+    confidence: { weight: 0.15 },
+    threat_intel_match: { weight: 0.15 },
+    user_risk_score: { weight: 0.1 },
+    blast_radius: { weight: 0.05 },
+  },
+
+  scoring: {
+    critical: { min: 80, color: "red", sla: "15m" },
+    high: { min: 60, color: "orange", sla: "1h" },
+    medium: { min: 40, color: "yellow", sla: "4h" },
+    low: { min: 0, color: "green", sla: "1d" },
+  },
+};
+```
+
+#### Alert Fatigue Prevention
+
+```yaml
+# Strategies to reduce alert fatigue
+alert_management:
+  deduplication:
+    enabled: true
+    window: "5m"
+    fields: ["rule_id", "source_ip", "dest_ip"]
+
+  suppression:
+    enabled: true
+    rules:
+      - condition: "alert.count > 100 in 1h"
+        action: "suppress"
+        duration: "1h"
+        notification: "Alert storm detected and suppressed"
+
+  aggregation:
+    enabled: true
+    related_alerts:
+      group_by: ["source_ip", "hostname"]
+      time_window: "15m"
+      create_incident: true
+
+  whitelisting:
+    enabled: true
+    auto_learn: true
+    review_frequency: "weekly"
+
+  tuning:
+    auto_tuning: true
+    ml_based: true
+    feedback_loop: true
+```
+
+## Performance Optimization
+
+### Data Ingestion
+
+```yaml
+# Optimize ingestion pipeline
+ingestion:
+  batching:
+    enabled: true
+    batch_size: 1000
+    batch_timeout: "5s"
+
+  compression:
+    enabled: true
+    algorithm: "lz4"
+
+  parsing:
+    workers: 10
+    queue_size: 10000
+    timeout: "30s"
+
+  enrichment:
+    async: true
+    cache_enabled: true
+    cache_ttl: "1h"
+
+  rate_limiting:
+    per_source: "10000/s"
+    per_type: "50000/s"
+    global: "100000/s"
+```
+
+### Query Performance
+
+```javascript
+// Query optimization techniques
+
+// ❌ Bad: No time filter
+const badQuery = `
+  * | stats count by source_ip
+`;
+
+// ✅ Good: Time-bounded with specific fields
+const goodQuery = `
+  index=security earliest=-24h latest=now
+  sourcetype=firewall
+  | fields source_ip, dest_ip, action
+  | stats count by source_ip
+  | where count > 100
+  | head 20
+`;
+
+// ❌ Bad: Multiple sequential queries
+for (const user of users) {
+  const events = await vinci.events.query(`user:${user}`);
+}
+
+// ✅ Good: Single bulk query
+const allEvents = await vinci.events.query(`
+  user IN (${users.join(",")})
+  | stats count by user
+`);
+```
+
+### Storage Optimization
+
+```yaml
+# Hot/Warm/Cold architecture
+storage_tiers:
+  hot:
+    media: "SSD"
+    retention: "30d"
+    indexing: "full"
+    compression: "none"
+    use_case: "real-time queries"
+
+  warm:
+    media: "HDD"
+    retention: "335d" # Days 31-365
+    indexing: "partial"
+    compression: "standard"
+    use_case: "historical analysis"
+
+  cold:
+    media: "S3"
+    retention: "2555d" # Years 2-7
+    indexing: "minimal"
+    compression: "high"
+    use_case: "compliance/archive"
+```
+
+## High Availability
+
+### Architecture
+
+```yaml
+# HA configuration
+high_availability:
+  database:
+    type: "postgresql"
+    topology: "primary-replica"
+    replicas: 2
+    synchronous_commit: true
+    failover:
+      automatic: true
+      max_lag: "100ms"
+
+  cache:
+    type: "redis"
+    topology: "cluster"
+    nodes: 6
+    replicas: 1
+
+  message_queue:
+    type: "kafka"
+    brokers: 3
+    replication_factor: 3
+    min_insync_replicas: 2
+
+  search:
+    type: "elasticsearch"
+    nodes: 3
+    replicas: 1
+    shard_allocation:
+      awareness: "zone"
+```
+
+### Disaster Recovery
+
+```yaml
+# DR strategy
+disaster_recovery:
+  backup:
+    frequency: "hourly"
+    retention:
+      hourly: "24h"
+      daily: "30d"
+      weekly: "12w"
+      monthly: "12m"
+      yearly: "7y"
+
+    types:
+      - database: "full+incremental"
+      - configuration: "continuous"
+      - logs: "continuous"
+
+  replication:
+    enabled: true
+    target: "dr-datacenter"
+    method: "async"
+    lag_tolerance: "5m"
+
+  testing:
+    frequency: "quarterly"
+    scenarios:
+      - database_failure
+      - datacenter_outage
+      - ransomware_attack
+
+  objectives:
+    rto: "4h" # Recovery Time Objective
+    rpo: "1h" # Recovery Point Objective
+```
+
+## Monitoring and Alerting
+
+### System Monitoring
+
+```yaml
+# Monitor platform health
+monitoring:
+  metrics:
+    collection_interval: "15s"
+
+    platform:
+      - events_per_second
+      - ingestion_lag
+      - processing_backlog
+      - detection_latency
+      - api_latency_p95
+      - error_rate
+
+    infrastructure:
+      - cpu_usage
+      - memory_usage
+      - disk_usage
+      - disk_io
+      - network_throughput
+
+    database:
+      - connection_count
+      - query_latency
+      - replication_lag
+      - deadlocks
+
+  alerting:
+    critical:
+      - events_per_second < 100 # Ingestion stopped
+      - processing_backlog > 100000 # Large backlog
+      - replication_lag > 10s # DB replication issue
+      - error_rate > 5% # High error rate
+
+    warning:
+      - cpu_usage > 80%
+      - memory_usage > 85%
+      - disk_usage > 80%
+      - api_latency_p95 > 1000ms
+```
+
+### Application Monitoring
+
+```javascript
+// Distributed tracing
+const tracer = vinci.monitoring.initializeTracing({
+  service: "vinci-api",
+  version: "2.0.0",
+
+  exporters: [
+    { type: "jaeger", endpoint: "http://jaeger:14268/api/traces" },
+    { type: "prometheus", endpoint: "http://prometheus:9090" },
+  ],
+
+  sampling: {
+    strategy: "probabilistic",
+    rate: 0.1, // Sample 10% of requests
+  },
+});
+
+// Custom metrics
+const metrics = vinci.monitoring.getMetricsRegistry();
+
+const alertProcessingTime = metrics.histogram({
+  name: "alert_processing_time_seconds",
+  help: "Time to process an alert",
+  labelNames: ["severity", "rule_type"],
+});
+
+const incidentCreationCounter = metrics.counter({
+  name: "incidents_created_total",
+  help: "Total number of incidents created",
+  labelNames: ["severity", "type"],
+});
+```
+
+## Documentation
+
+### Runbooks
+
+```markdown
+# Example Runbook: Database Failure
+
+## Symptoms
+
+- API returns 500 errors
+- Dashboard shows "Database connection failed"
+- Alerts: "PostgreSQL primary down"
+
+## Initial Response (5 min)
+
+1. Check database status: `kubectl get pods -l app=postgresql`
+2. Review logs: `kubectl logs postgresql-primary-0`
+3. Check replication status: `SELECT * FROM pg_stat_replication;`
+
+## Diagnosis (10 min)
+
+1. Verify network connectivity
+2. Check disk space: `df -h`
+3. Review PostgreSQL logs
+4. Check for deadlocks or long-running queries
+
+## Resolution Steps
+
+### Scenario A: Primary is down
+
+1. Promote replica to primary
+2. Update application configuration
+3. Verify data integrity
+4. Bring old primary online as replica
+
+### Scenario B: Replication lag
+
+1. Identify slow queries
+2. Optimize or kill problematic queries
+3. Check network between primary and replica
+4. Monitor lag reduction
+
+## Prevention
+
+- Regular vacuum and analyze
+- Monitor query performance
+- Set up proactive alerts for lag
+- Ensure adequate disk space
+
+## Post-Incident
+
+- Document root cause
+- Update monitoring thresholds
+- Consider capacity increase
+- Review with team
+```
+
+### Change Management
+
+```yaml
+# Change management process
+change_management:
+  types:
+    low_risk:
+      examples: ["documentation", "dashboard updates"]
+      approval: "tier2_analyst"
+      notification: "slack"
+
+    medium_risk:
+      examples: ["new detection rules", "integration changes"]
+      approval: "soc_manager"
+      testing_required: true
+      notification: "email+slack"
+      rollback_plan: "required"
+
+    high_risk:
+      examples: ["architecture changes", "database migrations"]
+      approval: ["soc_manager", "ciso"]
+      change_window: "scheduled"
+      testing_required: true
+      notification: "all_stakeholders"
+      rollback_plan: "detailed"
+      post_change_review: "required"
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Deployment Guide" href="/docs/deployment">
+    Deploy in production
+  </Card>
+  <Card title="Troubleshooting" href="/docs/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="Architecture" href="/docs/architecture">
+    Understand platform architecture
+  </Card>
+</Cards>

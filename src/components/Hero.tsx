@@ -1,5 +1,5 @@
 import { FadeUp } from "./animate/FadeUp";
-import { Button } from "./ui/button";
+import { Button } from "./ui/Button";
 import Image from "next/image";
 import { Play } from "lucide-react";
 import { useTranslations } from "next-intl";

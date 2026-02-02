@@ -1,0 +1,987 @@
+---
+title: API Reference
+description: Complete REST API documentation for Vinci SOC Platform
+icon: Code
+---
+
+# API Reference
+
+The Vinci API provides programmatic access to all platform features. This reference covers authentication, endpoints, request/response formats, and code examples.
+
+## Base URL
+
+```
+https://api.vinci-soc.com/v1
+```
+
+For self-hosted installations:
+
+```
+https://your-domain.com/api/v1
+```
+
+## Authentication
+
+### API Keys
+
+Create an API key in the Vinci dashboard:
+
+```bash
+# Using API key in header
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://api.vinci-soc.com/v1/alerts
+```
+
+### OAuth 2.0
+
+For third-party integrations:
+
+```javascript
+// OAuth flow example
+const oauth = {
+  authorization_endpoint: "https://api.vinci-soc.com/oauth/authorize",
+  token_endpoint: "https://api.vinci-soc.com/oauth/token",
+  client_id: "your_client_id",
+  client_secret: "your_client_secret",
+  redirect_uri: "https://your-app.com/callback",
+};
+
+// Exchange authorization code for access token
+const response = await fetch(oauth.token_endpoint, {
+  method: "POST",
+  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "authorization_code",
+    code: authorizationCode,
+    client_id: oauth.client_id,
+    client_secret: oauth.client_secret,
+    redirect_uri: oauth.redirect_uri,
+  }),
+});
+
+const { access_token, refresh_token } = await response.json();
+```
+
+## Rate Limiting
+
+API requests are rate limited per API key:
+
+| Tier       | Requests/minute | Requests/hour | Requests/day |
+| ---------- | --------------- | ------------- | ------------ |
+| Free       | 60              | 1,000         | 10,000       |
+| Pro        | 600             | 10,000        | 100,000      |
+| Enterprise | 6,000           | 100,000       | Unlimited    |
+
+Rate limit headers are included in all responses:
+
+```http
+X-RateLimit-Limit: 600
+X-RateLimit-Remaining: 599
+X-RateLimit-Reset: 1643723400
+```
+
+## Pagination
+
+List endpoints support cursor-based pagination:
+
+```javascript
+// Fetch paginated results
+const fetchAllIncidents = async () => {
+  let allIncidents = [];
+  let cursor = null;
+
+  do {
+    const params = new URLSearchParams({
+      limit: 100,
+      ...(cursor && { cursor }),
+    });
+
+    const response = await fetch(
+      `https://api.vinci-soc.com/v1/incidents?${params}`,
+      { headers: { Authorization: `Bearer ${API_KEY}` } },
+    );
+
+    const data = await response.json();
+    allIncidents = allIncidents.concat(data.incidents);
+    cursor = data.pagination.next_cursor;
+  } while (cursor);
+
+  return allIncidents;
+};
+```
+
+## Error Handling
+
+### Error Response Format
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "The request body is missing required field 'severity'",
+    "details": {
+      "field": "severity",
+      "expected_type": "string",
+      "expected_values": ["critical", "high", "medium", "low"]
+    },
+    "request_id": "req_abc123xyz",
+    "timestamp": "2026-01-28T10:30:00Z"
+  }
+}
+```
+
+### Error Codes
+
+| Status Code | Error Code            | Description                                  |
+| ----------- | --------------------- | -------------------------------------------- |
+| 400         | `invalid_request`     | Malformed request or missing required fields |
+| 401         | `unauthorized`        | Invalid or missing API key                   |
+| 403         | `forbidden`           | Insufficient permissions for this operation  |
+| 404         | `not_found`           | Requested resource does not exist            |
+| 409         | `conflict`            | Resource already exists or state conflict    |
+| 422         | `validation_error`    | Request validation failed                    |
+| 429         | `rate_limit_exceeded` | Too many requests                            |
+| 500         | `internal_error`      | Server error                                 |
+| 503         | `service_unavailable` | Service temporarily unavailable              |
+
+## Core Endpoints
+
+### Alerts
+
+#### List Alerts
+
+```http
+GET /alerts
+```
+
+Query Parameters:
+
+- `severity` (string): Filter by severity (critical, high, medium, low)
+- `status` (string): Filter by status (new, acknowledged, investigating, resolved)
+- `from` (ISO 8601): Start time
+- `to` (ISO 8601): End time
+- `limit` (integer): Results per page (max 100)
+- `cursor` (string): Pagination cursor
+
+```javascript
+// Example request
+const response = await fetch('https://api.vinci-soc.com/v1/alerts?' + new URLSearchParams({
+  severity: 'high',
+  status: 'new',
+  from: '2026-01-28T00:00:00Z',
+  limit: 50
+}), {
+  headers: {
+    'Authorization': `Bearer ${API_KEY}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+const data = await response.json();
+
+// Response
+{
+  "alerts": [
+    {
+      "id": "alert_abc123",
+      "title": "Suspicious PowerShell Execution Detected",
+      "description": "Encoded PowerShell command executed on workstation-01",
+      "severity": "high",
+      "status": "new",
+      "rule_id": "rule_powershell_001",
+      "rule_name": "Suspicious PowerShell Execution",
+      "created_at": "2026-01-28T10:15:30Z",
+      "updated_at": "2026-01-28T10:15:30Z",
+      "source": {
+        "type": "endpoint",
+        "hostname": "workstation-01",
+        "ip_address": "10.0.1.100",
+        "user": "john.doe"
+      },
+      "indicators": {
+        "process": "powershell.exe",
+        "command_line": "powershell.exe -enc SGVsbG8gV29ybGQ=",
+        "parent_process": "explorer.exe"
+      },
+      "mitre_attack": {
+        "tactics": ["Execution"],
+        "techniques": ["T1059.001"]
+      },
+      "incident_id": null
+    }
+  ],
+  "pagination": {
+    "total": 150,
+    "limit": 50,
+    "next_cursor": "cursor_xyz789",
+    "has_more": true
+  }
+}
+```
+
+#### Get Alert
+
+```http
+GET /alerts/{alert_id}
+```
+
+```javascript
+const response = await fetch(
+  "https://api.vinci-soc.com/v1/alerts/alert_abc123",
+  {
+    headers: { Authorization: `Bearer ${API_KEY}` },
+  },
+);
+```
+
+#### Update Alert
+
+```http
+PATCH /alerts/{alert_id}
+```
+
+```javascript
+// Acknowledge alert
+const response = await fetch(
+  "https://api.vinci-soc.com/v1/alerts/alert_abc123",
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      status: "acknowledged",
+      assigned_to: "analyst@company.com",
+      notes: "Investigating the PowerShell execution",
+    }),
+  },
+);
+```
+
+#### Create Incident from Alert
+
+```http
+POST /alerts/{alert_id}/create-incident
+```
+
+```javascript
+const response = await fetch(
+  "https://api.vinci-soc.com/v1/alerts/alert_abc123/create-incident",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: "Malicious PowerShell Investigation",
+      severity: "high",
+      assigned_to: "senior.analyst@company.com",
+    }),
+  },
+);
+```
+
+### Incidents
+
+#### List Incidents
+
+```http
+GET /incidents
+```
+
+```javascript
+const response = await fetch('https://api.vinci-soc.com/v1/incidents?' + new URLSearchParams({
+  status: 'investigating',
+  severity: 'high,critical',
+  limit: 20
+}), {
+  headers: { 'Authorization': `Bearer ${API_KEY}` }
+});
+
+// Response
+{
+  "incidents": [
+    {
+      "id": "inc_xyz789",
+      "number": "INC-2026-001",
+      "title": "Ransomware Attack on File Server",
+      "description": "Multiple files encrypted on file-server-01",
+      "severity": "critical",
+      "status": "investigating",
+      "type": "malware",
+      "created_at": "2026-01-28T09:00:00Z",
+      "updated_at": "2026-01-28T10:30:00Z",
+      "assigned_to": "senior.analyst@company.com",
+      "team": "tier3_analysts",
+      "affected_assets": [
+        {
+          "id": "asset_123",
+          "hostname": "file-server-01",
+          "ip_address": "10.0.2.50",
+          "type": "server"
+        }
+      ],
+      "affected_users": ["accounting@company.com"],
+      "alert_count": 15,
+      "mitre_attack": {
+        "tactics": ["Impact"],
+        "techniques": ["T1486"]
+      },
+      "sla": {
+        "response_time": "15m",
+        "resolution_time": "4h",
+        "time_remaining": "2h 15m",
+        "breached": false
+      }
+    }
+  ],
+  "pagination": {
+    "total": 8,
+    "limit": 20,
+    "has_more": false
+  }
+}
+```
+
+#### Create Incident
+
+```http
+POST /incidents
+```
+
+```javascript
+const response = await fetch('https://api.vinci-soc.com/v1/incidents', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${API_KEY}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    title: "Phishing Campaign Investigation",
+    description: "Multiple users received suspicious emails with malicious attachments",
+    severity: "high",
+    type: "phishing",
+    affected_users: [
+      "user1@company.com",
+      "user2@company.com"
+    ],
+    tags: ["phishing", "social_engineering"],
+    assigned_to: "analyst@company.com",
+    playbook: "phishing_response"
+  })
+});
+
+// Response
+{
+  "incident": {
+    "id": "inc_new123",
+    "number": "INC-2026-002",
+    "title": "Phishing Campaign Investigation",
+    "status": "new",
+    "created_at": "2026-01-28T11:00:00Z",
+    // ... other fields
+  }
+}
+```
+
+#### Update Incident
+
+```http
+PATCH /incidents/{incident_id}
+```
+
+```javascript
+// Update incident status
+const response = await fetch(
+  "https://api.vinci-soc.com/v1/incidents/inc_xyz789",
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      status: "contained",
+      resolution_notes: "Affected server isolated and malware removed",
+    }),
+  },
+);
+```
+
+#### Add Comment to Incident
+
+```http
+POST /incidents/{incident_id}/comments
+```
+
+```javascript
+const response = await fetch(
+  "https://api.vinci-soc.com/v1/incidents/inc_xyz789/comments",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text: "Malware variant identified as WannaCry ransomware",
+      visibility: "internal",
+      mentions: ["@senior.analyst"],
+    }),
+  },
+);
+```
+
+### Events
+
+#### Query Events
+
+```http
+POST /events/query
+```
+
+```javascript
+// Query security events
+const response = await fetch('https://api.vinci-soc.com/v1/events/query', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${API_KEY}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    query: `
+      event_type:"authentication"
+      AND status:"failure"
+      AND user:"admin"
+    `,
+    from: "2026-01-28T00:00:00Z",
+    to: "2026-01-28T23:59:59Z",
+    limit: 100,
+    sort: [
+      { field: "timestamp", order: "desc" }
+    ]
+  })
+});
+
+// Response
+{
+  "events": [
+    {
+      "id": "evt_abc123",
+      "timestamp": "2026-01-28T10:15:30.123Z",
+      "event_type": "authentication",
+      "source": "linux_server",
+      "user": "admin",
+      "status": "failure",
+      "source_ip": "192.168.1.100",
+      "message": "Failed password for admin from 192.168.1.100",
+      "fields": {
+        "auth_method": "password",
+        "service": "ssh",
+        "port": 22
+      }
+    }
+  ],
+  "total": 45,
+  "took_ms": 125
+}
+```
+
+### Detection Rules
+
+#### List Rules
+
+```http
+GET /detection-rules
+```
+
+#### Create Rule
+
+```http
+POST /detection-rules
+```
+
+```javascript
+const response = await fetch("https://api.vinci-soc.com/v1/detection-rules", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Multiple Failed SSH Logins",
+    description: "Detects brute force SSH attacks",
+    enabled: true,
+    severity: "high",
+    query: `
+      event_type:"ssh_login"
+      AND status:"failure"
+      | stats count by source_ip
+      | where count > 10
+    `,
+    threshold: {
+      count: 10,
+      timeframe: "5m",
+      group_by: ["source_ip"],
+    },
+    mitre_attack: {
+      tactics: ["Credential Access"],
+      techniques: ["T1110.001"],
+    },
+    actions: [
+      {
+        type: "create_alert",
+        severity: "high",
+      },
+      {
+        type: "block_ip",
+        duration: "1h",
+      },
+    ],
+  }),
+});
+```
+
+#### Test Rule
+
+```http
+POST /detection-rules/{rule_id}/test
+```
+
+```javascript
+// Test rule against historical data
+const response = await fetch(
+  'https://api.vinci-soc.com/v1/detection-rules/rule_123/test',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: "2026-01-21T00:00:00Z",
+      to: "2026-01-28T00:00:00Z"
+    })
+  }
+);
+
+// Response shows matches and sample events
+{
+  "matches": 23,
+  "false_positives": 3,
+  "sample_events": [/* ... */],
+  "performance": {
+    "execution_time_ms": 1250,
+    "events_scanned": 1000000
+  }
+}
+```
+
+### Playbooks
+
+#### List Playbooks
+
+```http
+GET /playbooks
+```
+
+#### Execute Playbook
+
+```http
+POST /playbooks/{playbook_id}/execute
+```
+
+```javascript
+const response = await fetch(
+  'https://api.vinci-soc.com/v1/playbooks/playbook_123/execute',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      incident_id: "inc_xyz789",
+      parameters: {
+        target_host: "workstation-01",
+        isolation_enabled: true
+      }
+    })
+  }
+);
+
+// Response
+{
+  "execution_id": "exec_abc456",
+  "status": "running",
+  "started_at": "2026-01-28T11:00:00Z",
+  "steps": [
+    {
+      "name": "Isolate Host",
+      "status": "completed",
+      "started_at": "2026-01-28T11:00:01Z",
+      "completed_at": "2026-01-28T11:00:05Z"
+    },
+    {
+      "name": "Collect Forensics",
+      "status": "running",
+      "started_at": "2026-01-28T11:00:06Z"
+    }
+  ]
+}
+```
+
+#### Get Playbook Execution Status
+
+```http
+GET /playbooks/executions/{execution_id}
+```
+
+### Threat Intelligence
+
+#### Search IOCs
+
+```http
+GET /threat-intel/iocs
+```
+
+```javascript
+const response = await fetch('https://api.vinci-soc.com/v1/threat-intel/iocs?' +
+  new URLSearchParams({
+    type: 'ip',
+    value: '203.0.113.50'
+  }), {
+  headers: { 'Authorization': `Bearer ${API_KEY}` }
+});
+
+// Response
+{
+  "iocs": [
+    {
+      "id": "ioc_123",
+      "type": "ip",
+      "value": "203.0.113.50",
+      "threat_types": ["malware", "c2"],
+      "confidence": 95,
+      "first_seen": "2026-01-15T00:00:00Z",
+      "last_seen": "2026-01-28T10:00:00Z",
+      "sources": ["AlienVault OTX", "MISP"],
+      "tags": ["apt28", "fancy_bear"],
+      "related_campaigns": ["APT28 Campaign 2026"]
+    }
+  ]
+}
+```
+
+#### Add IOC
+
+```http
+POST /threat-intel/iocs
+```
+
+```javascript
+const response = await fetch("https://api.vinci-soc.com/v1/threat-intel/iocs", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    type: "file_hash",
+    value: "44d88612fea8a8f36de82e1278abb02f",
+    hash_type: "md5",
+    threat_types: ["ransomware"],
+    confidence: 100,
+    description: "WannaCry ransomware sample",
+    expiration: "2027-01-28T00:00:00Z",
+    tags: ["wannacry", "ransomware"],
+  }),
+});
+```
+
+### Assets
+
+#### List Assets
+
+```http
+GET /assets
+```
+
+```javascript
+const response = await fetch('https://api.vinci-soc.com/v1/assets?' +
+  new URLSearchParams({
+    type: 'server',
+    criticality: 'high'
+  }), {
+  headers: { 'Authorization': `Bearer ${API_KEY}` }
+});
+
+// Response
+{
+  "assets": [
+    {
+      "id": "asset_123",
+      "hostname": "web-server-01",
+      "ip_addresses": ["10.0.1.50", "203.0.113.10"],
+      "mac_address": "00:11:22:33:44:55",
+      "type": "server",
+      "os": "Ubuntu 22.04 LTS",
+      "criticality": "high",
+      "owner": "it-team@company.com",
+      "location": "datacenter-us-east",
+      "tags": ["production", "web", "customer-facing"],
+      "last_seen": "2026-01-28T11:00:00Z",
+      "risk_score": 75,
+      "vulnerabilities": 3,
+      "incidents": 1
+    }
+  ],
+  "pagination": {
+    "total": 250,
+    "limit": 50,
+    "next_cursor": "cursor_assets_50"
+  }
+}
+```
+
+#### Update Asset
+
+```http
+PATCH /assets/{asset_id}
+```
+
+```javascript
+const response = await fetch("https://api.vinci-soc.com/v1/assets/asset_123", {
+  method: "PATCH",
+  headers: {
+    Authorization: `Bearer ${API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    criticality: "critical",
+    tags: ["production", "web", "customer-facing", "pci-compliance"],
+  }),
+});
+```
+
+## Webhooks
+
+### Configure Webhooks
+
+```http
+POST /webhooks
+```
+
+```javascript
+const response = await fetch("https://api.vinci-soc.com/v1/webhooks", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${API_KEY}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    url: "https://your-app.com/webhook/vinci",
+    events: [
+      "alert.created",
+      "alert.updated",
+      "incident.created",
+      "incident.status_changed",
+    ],
+    secret: "webhook_secret_key",
+    enabled: true,
+  }),
+});
+```
+
+### Webhook Payload Format
+
+```json
+{
+  "id": "evt_webhook_123",
+  "type": "incident.created",
+  "timestamp": "2026-01-28T11:00:00Z",
+  "data": {
+    "incident": {
+      "id": "inc_xyz789",
+      "number": "INC-2026-001",
+      "title": "Ransomware Attack",
+      "severity": "critical",
+      "status": "new"
+    }
+  },
+  "signature": "sha256=abc123..."
+}
+```
+
+### Verify Webhook Signature
+
+```javascript
+const crypto = require("crypto");
+
+function verifyWebhook(payload, signature, secret) {
+  const hmac = crypto.createHmac("sha256", secret);
+  const digest = "sha256=" + hmac.update(payload).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest));
+}
+
+// Express.js example
+app.post("/webhook/vinci", (req, res) => {
+  const signature = req.headers["x-vinci-signature"];
+  const payload = JSON.stringify(req.body);
+
+  if (!verifyWebhook(payload, signature, WEBHOOK_SECRET)) {
+    return res.status(401).send("Invalid signature");
+  }
+
+  // Process webhook
+  console.log("Event:", req.body.type);
+  res.status(200).send("OK");
+});
+```
+
+## SDKs
+
+### JavaScript/TypeScript
+
+```bash
+npm install @vinci/soc-sdk
+```
+
+```typescript
+import { VinciClient } from "@vinci/soc-sdk";
+
+const client = new VinciClient({
+  apiKey: process.env.VINCI_API_KEY,
+  baseUrl: "https://api.vinci-soc.com/v1",
+});
+
+// List incidents
+const incidents = await client.incidents.list({
+  status: "investigating",
+  severity: ["high", "critical"],
+});
+
+// Create incident
+const incident = await client.incidents.create({
+  title: "Security Investigation",
+  severity: "high",
+  type: "malware",
+});
+
+// Query events
+const events = await client.events.query({
+  query: 'event_type:"authentication" AND status:"failure"',
+  from: new Date("2026-01-28T00:00:00Z"),
+  to: new Date("2026-01-28T23:59:59Z"),
+});
+```
+
+### Python
+
+```bash
+pip install vinci-soc
+```
+
+```python
+from vinci_soc import VinciClient
+from datetime import datetime, timedelta
+
+client = VinciClient(api_key=os.getenv('VINCI_API_KEY'))
+
+# List alerts
+alerts = client.alerts.list(
+    severity='high',
+    status='new',
+    from_time=datetime.now() - timedelta(hours=24)
+)
+
+# Create incident
+incident = client.incidents.create(
+    title='Malware Investigation',
+    severity='high',
+    affected_assets=['workstation-01']
+)
+
+# Execute playbook
+execution = client.playbooks.execute(
+    playbook_id='playbook_123',
+    incident_id=incident.id
+)
+```
+
+## Best Practices
+
+### Error Handling
+
+```javascript
+async function fetchIncident(incidentId) {
+  try {
+    const response = await fetch(
+      `https://api.vinci-soc.com/v1/incidents/${incidentId}`,
+      { headers: { Authorization: `Bearer ${API_KEY}` } },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`API Error: ${error.error.message}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch incident:", error);
+    throw error;
+  }
+}
+```
+
+### Rate Limit Handling
+
+```javascript
+async function withRetry(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.status === 429 && i < maxRetries - 1) {
+        const retryAfter = error.headers["retry-after"] || 60;
+        await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+```
+
+### Batch Operations
+
+```javascript
+// Process items in batches
+async function batchProcess(items, batchSize = 100) {
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    await Promise.all(batch.map((item) => processItem(item)));
+
+    // Rate limit friendly
+    if (i + batchSize < items.length) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+}
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Authentication Guide" href="/docs/authentication">
+    Learn about authentication methods
+  </Card>
+  <Card title="Webhooks" href="/docs/webhooks">
+    Set up webhook integrations
+  </Card>
+  <Card title="SDKs" href="/docs/sdks">
+    Use official SDKs for your language
+  </Card>
+</Cards>

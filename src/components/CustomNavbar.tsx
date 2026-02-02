@@ -7,7 +7,7 @@ import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
 import { Logo } from "./Logo";
-import { Button } from "./ui/button";
+import { Button } from "./ui/Button";
 import {
   Select,
   SelectContent,

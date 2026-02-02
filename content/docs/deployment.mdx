@@ -1,0 +1,774 @@
+---
+title: Deployment Guide
+description: Deploy Vinci SOC Platform in production environments
+icon: Server
+---
+
+# Deployment Guide
+
+This guide covers deploying Vinci in various environments from single-server installations to enterprise-grade, high-availability deployments.
+
+## Deployment Options
+
+### Quick Start (Development)
+
+For testing and development environments:
+
+```bash
+# Using Docker Compose
+git clone https://github.com/vinci-soc/platform.git
+cd platform
+cp .env.example .env
+
+# Edit .env with your configuration
+nano .env
+
+# Start all services
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f vinci-web
+```
+
+Access the dashboard at `http://localhost:3000`
+
+### Single Server (Small Production)
+
+Suitable for organizations with < 1,000 events/second:
+
+**System Requirements:**
+
+- CPU: 8 cores
+- RAM: 32GB
+- Storage: 500GB SSD
+- OS: Ubuntu 22.04 LTS or RHEL 8+
+
+```bash
+# Install dependencies
+sudo apt update
+sudo apt install -y docker.io docker-compose postgresql-14 redis-server
+
+# Download installation script
+curl -fsSL https://install.vinci-soc.com/install.sh | sudo bash
+
+# Follow interactive setup
+sudo vinci-setup
+```
+
+### High Availability (Enterprise)
+
+For organizations with > 10,000 events/second:
+
+```yaml
+# docker-compose.ha.yml
+version: "3.8"
+
+services:
+  # Load Balancer
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web-1
+      - web-2
+      - web-3
+
+  # Web Tier (3 replicas)
+  web-1:
+    image: vinci/web:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+
+  web-2:
+    image: vinci/web:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+
+  web-3:
+    image: vinci/web:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+
+  # API Tier (3 replicas)
+  api-1:
+    image: vinci/api:latest
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+
+  # ... api-2, api-3
+
+  # Processing Workers (5 replicas)
+  worker-1:
+    image: vinci/worker:latest
+    environment:
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - WORKER_TYPE=processor
+      - CONCURRENCY=10
+
+  # ... worker-2 through worker-5
+
+  # Detection Workers (3 replicas)
+  detection-1:
+    image: vinci/worker:latest
+    environment:
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - WORKER_TYPE=detection
+      - CONCURRENCY=5
+
+  # ... detection-2, detection-3
+
+  # Kafka Cluster
+  kafka-1:
+    image: confluentinc/cp-kafka:latest
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+
+  # ... kafka-2, kafka-3
+
+  # PostgreSQL Primary
+  postgres-primary:
+    image: postgres:14
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_REPLICATION_MODE: master
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  # PostgreSQL Replicas
+  postgres-replica-1:
+    image: postgres:14
+    environment:
+      POSTGRES_MASTER_SERVICE_HOST: postgres-primary
+      POSTGRES_REPLICATION_MODE: slave
+
+  # Redis Cluster
+  redis-1:
+    image: redis:7-alpine
+    command: redis-server --cluster-enabled yes
+
+  # ... redis-2 through redis-6
+
+  # Elasticsearch Cluster
+  elasticsearch-1:
+    image: elasticsearch:8.11.0
+    environment:
+      - cluster.name=vinci-cluster
+      - node.name=es-1
+      - discovery.seed_hosts=elasticsearch-2,elasticsearch-3
+      - cluster.initial_master_nodes=es-1,es-2,es-3
+    volumes:
+      - es-data-1:/usr/share/elasticsearch/data
+
+volumes:
+  postgres-data:
+  es-data-1:
+  es-data-2:
+  es-data-3:
+```
+
+## Kubernetes Deployment
+
+### Prerequisites
+
+- Kubernetes 1.24+
+- Helm 3.0+
+- kubectl configured
+- Persistent volume provisioner
+
+### Installation
+
+```bash
+# Add Vinci Helm repository
+helm repo add vinci https://charts.vinci-soc.com
+helm repo update
+
+# Create namespace
+kubectl create namespace vinci-soc
+
+# Create secrets
+kubectl create secret generic vinci-secrets \
+  --from-literal=database-password='your-db-password' \
+  --from-literal=jwt-secret='your-jwt-secret' \
+  --from-literal=api-key-encryption='your-encryption-key' \
+  -n vinci-soc
+
+# Install with Helm
+helm install vinci vinci/vinci-soc \
+  --namespace vinci-soc \
+  --set image.tag=latest \
+  --set ingress.enabled=true \
+  --set ingress.hostname=vinci.company.com \
+  --set postgresql.enabled=true \
+  --set redis.enabled=true \
+  --set kafka.enabled=true \
+  --set elasticsearch.enabled=true \
+  --values values.yaml
+```
+
+### Custom Values File
+
+```yaml
+# values.yaml
+global:
+  storageClass: "fast-ssd"
+
+# Web tier configuration
+web:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# API tier configuration
+api:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 70
+
+# Worker configuration
+workers:
+  processor:
+    replicaCount: 5
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+
+  detection:
+    replicaCount: 3
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4Gi"
+      limits:
+        cpu: "4"
+        memory: "8Gi"
+
+# Database configuration
+postgresql:
+  enabled: true
+  primary:
+    resources:
+      requests:
+        cpu: "4"
+        memory: "8Gi"
+      limits:
+        cpu: "8"
+        memory: "16Gi"
+    persistence:
+      size: 500Gi
+      storageClass: "fast-ssd"
+
+  replication:
+    enabled: true
+    numReplicas: 2
+
+# Redis configuration
+redis:
+  enabled: true
+  cluster:
+    enabled: true
+    nodes: 6
+  master:
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+
+# Kafka configuration
+kafka:
+  enabled: true
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  persistence:
+    size: 1Ti
+
+# Elasticsearch configuration
+elasticsearch:
+  enabled: true
+  replicas: 3
+  minimumMasterNodes: 2
+  resources:
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+    limits:
+      cpu: "8"
+      memory: "32Gi"
+  volumeClaimTemplate:
+    resources:
+      requests:
+        storage: 2Ti
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  hostname: vinci.company.com
+  tls:
+    enabled: true
+    secretName: vinci-tls
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+    adminPassword: "admin123" # Change this!
+```
+
+### Verify Deployment
+
+```bash
+# Check pod status
+kubectl get pods -n vinci-soc
+
+# Check services
+kubectl get services -n vinci-soc
+
+# Check ingress
+kubectl get ingress -n vinci-soc
+
+# View logs
+kubectl logs -f deployment/vinci-api -n vinci-soc
+
+# Execute commands in pod
+kubectl exec -it deployment/vinci-api -n vinci-soc -- vinci-cli status
+```
+
+## Cloud-Specific Deployments
+
+### AWS
+
+#### Using ECS Fargate
+
+```bash
+# Install AWS CLI and ECS CLI
+pip install awscli
+ecs-cli configure --cluster vinci-cluster --region us-east-1
+
+# Create ECS cluster
+ecs-cli up \
+  --cluster-config vinci-cluster \
+  --ecs-profile vinci-profile \
+  --capability-iam
+
+# Deploy services
+ecs-cli compose \
+  --file docker-compose.aws.yml \
+  --project-name vinci \
+  service up
+```
+
+#### Using EKS
+
+```bash
+# Create EKS cluster
+eksctl create cluster \
+  --name vinci-cluster \
+  --region us-east-1 \
+  --nodegroup-name standard-workers \
+  --node-type m5.2xlarge \
+  --nodes 5 \
+  --nodes-min 3 \
+  --nodes-max 10 \
+  --managed
+
+# Configure kubectl
+aws eks update-kubeconfig --name vinci-cluster --region us-east-1
+
+# Deploy with Helm (see Kubernetes section above)
+helm install vinci vinci/vinci-soc --namespace vinci-soc
+```
+
+#### AWS-Specific Configuration
+
+```yaml
+# AWS integrations
+aws:
+  region: us-east-1
+
+  # Use RDS for PostgreSQL
+  database:
+    type: rds
+    endpoint: vinci-db.abc123.us-east-1.rds.amazonaws.com
+    port: 5432
+
+  # Use ElastiCache for Redis
+  cache:
+    type: elasticache
+    endpoint: vinci-cache.abc123.0001.use1.cache.amazonaws.com
+
+  # Use MSK for Kafka
+  kafka:
+    type: msk
+    bootstrap_servers:
+      - b-1.vinci.abc123.kafka.us-east-1.amazonaws.com:9092
+      - b-2.vinci.abc123.kafka.us-east-1.amazonaws.com:9092
+
+  # Use S3 for long-term storage
+  storage:
+    type: s3
+    bucket: vinci-data-lake
+    encryption: AES256
+
+  # Use CloudWatch for logging
+  logging:
+    type: cloudwatch
+    log_group: /aws/vinci-soc
+```
+
+### Azure
+
+#### Using AKS
+
+```bash
+# Create resource group
+az group create --name vinci-rg --location eastus
+
+# Create AKS cluster
+az aks create \
+  --resource-group vinci-rg \
+  --name vinci-cluster \
+  --node-count 5 \
+  --node-vm-size Standard_D4s_v3 \
+  --enable-addons monitoring \
+  --generate-ssh-keys
+
+# Get credentials
+az aks get-credentials --resource-group vinci-rg --name vinci-cluster
+
+# Deploy with Helm
+helm install vinci vinci/vinci-soc --namespace vinci-soc
+```
+
+### Google Cloud Platform
+
+#### Using GKE
+
+```bash
+# Create GKE cluster
+gcloud container clusters create vinci-cluster \
+  --region us-central1 \
+  --machine-type n1-standard-4 \
+  --num-nodes 5 \
+  --enable-autoscaling \
+  --min-nodes 3 \
+  --max-nodes 10 \
+  --enable-stackdriver-kubernetes
+
+# Get credentials
+gcloud container clusters get-credentials vinci-cluster --region us-central1
+
+# Deploy with Helm
+helm install vinci vinci/vinci-soc --namespace vinci-soc
+```
+
+## Database Setup
+
+### PostgreSQL
+
+#### Initial Setup
+
+```sql
+-- Create database and user
+CREATE DATABASE vinci_production;
+CREATE USER vinci_app WITH ENCRYPTED PASSWORD 'your-secure-password';
+GRANT ALL PRIVILEGES ON DATABASE vinci_production TO vinci_app;
+
+-- Connect to vinci_production database
+\c vinci_production
+
+-- Grant schema privileges
+GRANT ALL ON SCHEMA public TO vinci_app;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO vinci_app;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO vinci_app;
+
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "btree_gin";
+```
+
+#### Run Migrations
+
+```bash
+# Run database migrations
+vinci-cli db migrate
+
+# Verify migration status
+vinci-cli db status
+
+# Seed initial data (optional)
+vinci-cli db seed
+```
+
+#### Backup Configuration
+
+```bash
+# Configure automated backups
+cat > /etc/vinci/backup.yml <<EOF
+database:
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    storage:
+      type: s3
+      bucket: vinci-backups
+      prefix: database/
+    encryption:
+      enabled: true
+      kms_key_id: "arn:aws:kms:us-east-1:123456789:key/abc-123"
+EOF
+
+# Test backup
+vinci-cli db backup --test
+```
+
+## SSL/TLS Configuration
+
+### Generate Certificates
+
+```bash
+# Using Let's Encrypt
+certbot certonly \
+  --standalone \
+  --preferred-challenges http \
+  -d vinci.company.com \
+  --email admin@company.com \
+  --agree-tos
+
+# Certificates will be in:
+# /etc/letsencrypt/live/vinci.company.com/fullchain.pem
+# /etc/letsencrypt/live/vinci.company.com/privkey.pem
+```
+
+### Configure Nginx
+
+```nginx
+# /etc/nginx/sites-available/vinci
+upstream vinci_web {
+    server 127.0.0.1:3000;
+    server 127.0.0.1:3001;
+    server 127.0.0.1:3002;
+}
+
+upstream vinci_api {
+    server 127.0.0.1:4000;
+    server 127.0.0.1:4001;
+    server 127.0.0.1:4002;
+}
+
+server {
+    listen 80;
+    server_name vinci.company.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name vinci.company.com;
+
+    ssl_certificate /etc/letsencrypt/live/vinci.company.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vinci.company.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Security headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Web interface
+    location / {
+        proxy_pass http://vinci_web;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # API
+    location /api/ {
+        proxy_pass http://vinci_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Rate limiting
+        limit_req zone=api_limit burst=20 nodelay;
+    }
+
+    # WebSocket support
+    location /ws {
+        proxy_pass http://vinci_web;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+
+# Rate limiting configuration
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=100r/m;
+```
+
+## Monitoring Setup
+
+### Prometheus Configuration
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "vinci-web"
+    static_configs:
+      - targets: ["localhost:3000", "localhost:3001", "localhost:3002"]
+
+  - job_name: "vinci-api"
+    static_configs:
+      - targets: ["localhost:4000", "localhost:4001", "localhost:4002"]
+
+  - job_name: "vinci-workers"
+    static_configs:
+      - targets: ["localhost:5000", "localhost:5001", "localhost:5002"]
+
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["localhost:9187"]
+
+  - job_name: "redis"
+    static_configs:
+      - targets: ["localhost:9121"]
+
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["localhost:9308"]
+```
+
+### Grafana Dashboards
+
+```bash
+# Import pre-built dashboards
+curl -o vinci-dashboard.json https://dashboards.vinci-soc.com/main.json
+
+# Import via CLI
+grafana-cli dashboards import vinci-dashboard.json
+```
+
+## Post-Deployment
+
+### Health Checks
+
+```bash
+# Check system health
+curl https://vinci.company.com/health
+
+# Expected response:
+{
+  "status": "healthy",
+  "version": "2.0.0",
+  "services": {
+    "database": "healthy",
+    "cache": "healthy",
+    "kafka": "healthy",
+    "elasticsearch": "healthy"
+  },
+  "metrics": {
+    "events_per_second": 5234,
+    "active_incidents": 3,
+    "open_alerts": 47
+  }
+}
+```
+
+### Initial Configuration
+
+```bash
+# Create admin user
+vinci-cli users create-admin \
+  --email admin@company.com \
+  --password "SecurePassword123!" \
+  --name "Admin User"
+
+# Configure system settings
+vinci-cli config set \
+  --retention-days 365 \
+  --alert-threshold-high 100 \
+  --timezone "America/New_York"
+
+# Test integrations
+vinci-cli integrations test --all
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Configuration" href="/docs/configuration">
+    Configure system settings and parameters
+  </Card>
+  <Card title="Best Practices" href="/docs/best-practices">
+    Security and operational best practices
+  </Card>
+  <Card title="Troubleshooting" href="/docs/troubleshooting">
+    Common issues and solutions
+  </Card>
+</Cards>

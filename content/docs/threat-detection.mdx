@@ -1,0 +1,551 @@
+---
+title: Threat Detection
+description: Configure and optimize threat detection capabilities in Vinci SOC
+icon: Shield
+---
+
+# Threat Detection
+
+Vinci's threat detection engine uses multiple techniques to identify security threats across your infrastructure. This guide covers detection rules, machine learning models, and threat intelligence integration.
+
+## Detection Strategies
+
+### Defense in Depth
+
+Vinci implements multiple layers of detection:
+
+1. **Signature-based**: Known threat patterns and IOCs
+2. **Behavioral**: Anomalies from established baselines
+3. **Correlation**: Multi-event attack chains
+4. **Threat intelligence**: External threat feeds
+5. **Machine learning**: Advanced anomaly detection
+
+## Rule-Based Detection
+
+### Sigma Rules
+
+Vinci uses the Sigma standard for detection rules:
+
+```yaml
+title: Suspicious SSH Login from Unusual Location
+id: a4b12c89-e4f1-4b5c-9d2e-8f3a1c7b9d4e
+status: production
+description: Detects SSH logins from geographic locations that deviate from user's normal pattern
+author: SOC Team
+date: 2025/01/15
+modified: 2026/01/28
+logsource:
+  category: authentication
+  product: linux
+detection:
+  selection:
+    event_type: "ssh_login"
+    status: "success"
+  filter:
+    geo_distance: ">5000km" # More than 5000km from usual locations
+  condition: selection and filter
+falsepositives:
+  - Legitimate travel
+  - VPN usage
+  - Remote workers
+level: medium
+tags:
+  - attack.initial_access
+  - attack.t1078
+fields:
+  - user
+  - source_ip
+  - geo_location
+  - timestamp
+```
+
+### MITRE ATT&CK Mapping
+
+All detection rules map to MITRE ATT&CK framework:
+
+| Tactic               | Technique                                     | Example Rules                              |
+| -------------------- | --------------------------------------------- | ------------------------------------------ |
+| Initial Access       | T1078 - Valid Accounts                        | Brute force detection, credential stuffing |
+| Execution            | T1059 - Command and Scripting                 | PowerShell abuse, suspicious bash commands |
+| Persistence          | T1053 - Scheduled Task                        | Malicious cron jobs, Windows task creation |
+| Privilege Escalation | T1068 - Exploitation for Privilege Escalation | Sudo abuse, UAC bypass                     |
+| Defense Evasion      | T1070 - Indicator Removal                     | Log deletion, timestamp manipulation       |
+| Credential Access    | T1003 - OS Credential Dumping                 | Mimikatz detection, LSASS access           |
+| Discovery            | T1046 - Network Service Scanning              | Port scanning, service enumeration         |
+| Lateral Movement     | T1021 - Remote Services                       | RDP/SSH lateral movement, PSExec usage     |
+| Collection           | T1560 - Archive Collected Data                | Data staging, compression activities       |
+| Exfiltration         | T1041 - Exfiltration Over C2 Channel          | Large data transfers, DNS tunneling        |
+
+### Custom Rule Creation
+
+Create custom rules via the UI or API:
+
+```javascript
+// Create a new detection rule
+const rule = {
+  title: "Multiple Failed Database Login Attempts",
+  description: "Detects potential SQL injection or brute force attack",
+  severity: "high",
+  enabled: true,
+  query: `
+    event_type:"database_auth_failure"
+    | stats count by source_ip, database_user
+    | where count > 10
+    | eval time_window="5m"
+  `,
+  threshold: {
+    count: 10,
+    timeframe: "5m",
+    group_by: ["source_ip", "database_user"],
+  },
+  actions: [
+    {
+      type: "create_incident",
+      severity: "high",
+      assign_to: "tier1_analysts",
+    },
+    {
+      type: "block_ip",
+      duration: "1h",
+    },
+    {
+      type: "notify",
+      channels: ["slack", "email"],
+    },
+  ],
+};
+
+await vinci.detectionRules.create(rule);
+```
+
+### Rule Testing
+
+Test rules before deploying to production:
+
+```bash
+# Test rule against historical data
+vinci rules test \
+  --rule-id suspicious-ssh-login \
+  --start-time "2026-01-01" \
+  --end-time "2026-01-28" \
+  --dry-run
+
+# Output shows:
+# - Number of matches
+# - Sample events
+# - False positive analysis
+```
+
+## Machine Learning Detection
+
+### Pre-built Models
+
+Vinci includes several trained ML models:
+
+#### User Behavior Analytics (UBA)
+
+Detects anomalous user activity:
+
+- **Login patterns**: Unusual times, locations, devices
+- **Access patterns**: Abnormal file/resource access
+- **Activity patterns**: Deviation from normal work behavior
+
+```yaml
+# UBA Model Configuration
+model: user_behavior_analytics
+parameters:
+  training_period: 30d
+  features:
+    - login_time_of_day
+    - login_day_of_week
+    - geo_location
+    - device_type
+    - accessed_resources
+  anomaly_threshold: 0.85
+  min_baseline_events: 100
+```
+
+#### Network Anomaly Detection
+
+Identifies unusual network traffic:
+
+- **Traffic volume**: Sudden increases/decreases
+- **Connection patterns**: New destinations, protocols
+- **Timing anomalies**: Off-hours activity
+
+```python
+# Network Anomaly Example
+from vinci.ml import NetworkAnomalyDetector
+
+detector = NetworkAnomalyDetector(
+    features=[
+        'bytes_sent',
+        'bytes_received',
+        'connection_count',
+        'unique_destinations',
+        'protocol_distribution'
+    ],
+    algorithm='isolation_forest',
+    contamination=0.01  # Expected anomaly rate
+)
+
+# Train on normal traffic
+detector.fit(historical_network_data)
+
+# Detect anomalies in real-time
+anomalies = detector.predict(current_traffic)
+```
+
+#### Threat Classification
+
+Classifies alerts into threat categories:
+
+- **Malware**: Virus, trojan, ransomware, spyware
+- **Intrusion**: Unauthorized access attempts
+- **Data leakage**: Suspicious data transfers
+- **Policy violation**: Compliance breaches
+- **Account compromise**: Credential theft
+
+### Custom Model Training
+
+Train models on your own data:
+
+```python
+from vinci.ml import ModelTrainer
+
+# Prepare training data
+training_data = vinci.data.query("""
+    SELECT
+        user_id,
+        event_type,
+        timestamp,
+        source_ip,
+        user_agent,
+        success,
+        LABEL
+    FROM security_events
+    WHERE timestamp >= NOW() - INTERVAL '90 days'
+""")
+
+# Train custom model
+trainer = ModelTrainer(
+    model_type='random_forest',
+    target='LABEL',
+    features=['event_type', 'source_ip', 'user_agent', 'hour_of_day'],
+    test_split=0.2
+)
+
+model = trainer.fit(training_data)
+
+# Evaluate performance
+metrics = trainer.evaluate()
+print(f"Accuracy: {metrics.accuracy}")
+print(f"Precision: {metrics.precision}")
+print(f"Recall: {metrics.recall}")
+print(f"F1 Score: {metrics.f1_score}")
+
+# Deploy to production
+vinci.models.deploy(model, name='custom_threat_classifier')
+```
+
+### Model Monitoring
+
+Monitor model performance over time:
+
+```javascript
+// Get model metrics
+const metrics = await vinci.models.getMetrics("user_behavior_analytics", {
+  timeframe: "30d",
+});
+
+console.log(`
+  Alerts Generated: ${metrics.alerts_generated}
+  True Positives: ${metrics.true_positives}
+  False Positives: ${metrics.false_positives}
+  Precision: ${metrics.precision}%
+  Drift Score: ${metrics.drift_score}
+`);
+
+// Set up alerting for model degradation
+await vinci.models.setThreshold("user_behavior_analytics", {
+  min_precision: 0.8,
+  max_drift_score: 0.3,
+  notify: ["soc-team@company.com"],
+});
+```
+
+## Correlation Rules
+
+### Multi-Event Correlation
+
+Detect complex attack patterns:
+
+```yaml
+correlation_rule:
+  name: "Ransomware Attack Pattern"
+  description: "Detects potential ransomware based on behavioral indicators"
+  severity: critical
+
+  events:
+    - event: "mass_file_modification"
+      threshold: 100
+      timeframe: "10m"
+
+    - event: "unusual_file_extension"
+      patterns: [".encrypted", ".locked", ".crypto"]
+
+    - event: "shadow_copy_deletion"
+      command_contains: "vssadmin delete shadows"
+
+    - event: "ransom_note_creation"
+      filename_pattern: "*README*.txt"
+
+  correlation:
+    operator: "AND"
+    within: "15m"
+    group_by: ["hostname", "user"]
+
+  actions:
+    - isolate_endpoint
+    - disable_user_account
+    - create_critical_incident
+    - notify_soc_manager
+    - trigger_playbook: "ransomware_response"
+```
+
+### Threat Chains
+
+Define attack kill chains:
+
+```javascript
+const killChain = {
+  name: "APT Lateral Movement",
+  stages: [
+    {
+      stage: "initial_compromise",
+      rules: ["phishing_email", "suspicious_download"],
+      timeframe: "1h",
+    },
+    {
+      stage: "execution",
+      rules: ["macro_execution", "powershell_download"],
+      timeframe: "30m",
+    },
+    {
+      stage: "privilege_escalation",
+      rules: ["mimikatz_detection", "lsass_access"],
+      timeframe: "1h",
+    },
+    {
+      stage: "lateral_movement",
+      rules: ["psexec_usage", "rdp_lateral"],
+      timeframe: "2h",
+    },
+    {
+      stage: "exfiltration",
+      rules: ["large_data_transfer", "dns_tunneling"],
+      timeframe: "4h",
+    },
+  ],
+  min_stages: 3, // Alert if at least 3 stages detected
+  total_timeframe: "24h",
+};
+```
+
+## Threat Intelligence Integration
+
+### IOC Management
+
+Import and manage indicators of compromise:
+
+```bash
+# Import threat feed
+vinci threat-intel import \
+  --source "https://feeds.threatintel.com/malicious-ips.json" \
+  --type "ip" \
+  --confidence "high" \
+  --tags "malware,botnet"
+
+# Manual IOC addition
+vinci threat-intel add \
+  --type "file_hash" \
+  --value "44d88612fea8a8f36de82e1278abb02f" \
+  --threat-type "ransomware" \
+  --confidence "high" \
+  --description "Wannacry ransomware sample"
+```
+
+### Threat Feed Integration
+
+Connect to external threat intelligence feeds:
+
+```yaml
+threat_feeds:
+  - name: "AlienVault OTX"
+    type: "otx"
+    api_key: "${ALIENVAULT_API_KEY}"
+    enabled: true
+    update_frequency: "1h"
+
+  - name: "MISP"
+    type: "misp"
+    url: "https://misp.company.com"
+    api_key: "${MISP_API_KEY}"
+    enabled: true
+    update_frequency: "15m"
+
+  - name: "Custom Threat Feed"
+    type: "http"
+    url: "https://threat-intel.company.com/feed.json"
+    format: "stix"
+    auth_type: "bearer"
+    auth_token: "${THREAT_FEED_TOKEN}"
+    update_frequency: "30m"
+```
+
+### Enrichment
+
+Automatically enrich alerts with threat intelligence:
+
+```javascript
+// Alert enrichment example
+const alert = {
+  id: "alert-12345",
+  type: "suspicious_connection",
+  source_ip: "192.0.2.100",
+  destination_ip: "203.0.113.50",
+};
+
+// Enrichment adds:
+const enrichedAlert = {
+  ...alert,
+  threat_intel: {
+    source_ip: {
+      reputation: "clean",
+      geo_location: "United States",
+      asn: "AS15169 Google LLC",
+    },
+    destination_ip: {
+      reputation: "malicious",
+      threat_types: ["malware", "c2"],
+      first_seen: "2026-01-15",
+      confidence: 95,
+      feeds: ["AlienVault OTX", "Custom Feed"],
+      related_campaigns: ["APT28", "FancyBear"],
+    },
+  },
+};
+```
+
+## Detection Performance
+
+### Metrics and KPIs
+
+Track detection effectiveness:
+
+```javascript
+// Get detection metrics
+const metrics = await vinci.detection.getMetrics({
+  timeframe: "30d",
+});
+
+console.log(`
+Detection Coverage: ${metrics.coverage}%
+  - Events analyzed: ${metrics.events_analyzed.toLocaleString()}
+  - Events with detection: ${metrics.events_with_detection.toLocaleString()}
+
+Alert Statistics:
+  - Total alerts: ${metrics.total_alerts}
+  - True positives: ${metrics.true_positives}
+  - False positives: ${metrics.false_positives}
+  - Precision: ${metrics.precision}%
+
+Mean Time to Detect (MTTD): ${metrics.mttd}
+Mean Time to Respond (MTTR): ${metrics.mttr}
+
+Top Detection Rules:
+${metrics.top_rules.map((r) => `  - ${r.name}: ${r.count} alerts`).join("\n")}
+`);
+```
+
+### Tuning and Optimization
+
+Reduce false positives:
+
+```yaml
+# False Positive Reduction Strategies
+strategies:
+  - name: "Whitelist trusted entities"
+    rules:
+      - add_exception:
+          rule_id: "suspicious-powershell"
+          filter:
+            user: "admin@company.com"
+            script_path: "/opt/company/scripts/*"
+
+  - name: "Adjust thresholds"
+    rules:
+      - update_threshold:
+          rule_id: "failed-login-attempts"
+          from: 5
+          to: 10
+          timeframe: "10m"
+
+  - name: "Add correlation context"
+    rules:
+      - require_correlation:
+          rule_id: "port-scan"
+          with: "vulnerability-scan"
+          within: "1h"
+```
+
+## Best Practices
+
+### Rule Development
+
+1. **Start conservative**: Begin with high-confidence rules
+2. **Test thoroughly**: Use historical data for validation
+3. **Monitor closely**: Track false positive rates
+4. **Iterate quickly**: Adjust rules based on feedback
+5. **Document extensively**: Include context and examples
+
+### Detection Gaps
+
+Identify and address coverage gaps:
+
+```bash
+# Coverage analysis
+vinci detection analyze-coverage \
+  --mitre-attack \
+  --output coverage-report.html
+
+# Shows:
+# - Covered techniques (green)
+# - Partially covered (yellow)
+# - Not covered (red)
+# - Recommendations for new rules
+```
+
+### Alert Fatigue Prevention
+
+Strategies to maintain analyst effectiveness:
+
+- **Prioritize ruthlessly**: Focus on high/critical severity
+- **Automate triage**: Use playbooks for common alerts
+- **Consolidate duplicates**: Group related alerts
+- **Suppress noise**: Temporarily disable low-value rules
+- **Regular review**: Weekly rule performance review
+
+## Next Steps
+
+<Cards>
+  <Card title="Incident Management" href="/docs/incident-management">
+    Learn how to manage and respond to incidents
+  </Card>
+  <Card title="Playbooks" href="/docs/playbooks">
+    Create automated response workflows
+  </Card>
+  <Card title="Analytics" href="/docs/analytics">
+    Build custom dashboards and reports
+  </Card>
+</Cards>
