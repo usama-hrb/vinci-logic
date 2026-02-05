@@ -1,13 +1,24 @@
 import { useTranslations } from "next-intl";
 import { FadeUp } from "./animate/FadeUp";
-import { BellOff, ServerCrash, Workflow, ArrowRight } from "lucide-react";
+import {
+  BellOff,
+  ServerCrash,
+  Workflow,
+  ArrowRight,
+  AlertTriangle,
+  Clock,
+} from "lucide-react";
 import { ShineBorder } from "./ui/shine-border";
 import AnimatedBadge from "./ui/animated-badge";
 import Image from "next/image";
 import { Ripple } from "./ui/ripple";
+import { AnimatedBeamMultipleOutputDemo } from "./ui/animated-beam-demo";
+import SmartPrioritization from "./SmartPrioritization";
+import GuidedInvestigation from "./GuidedInvestigation";
 
 export default function HowItWorks() {
   const t = useTranslations("how");
+
   const how = [
     {
       key: "step1",
@@ -105,13 +116,22 @@ export default function HowItWorks() {
         <div className="flex flex-col gap-6 backdrop-blur-2xl">
           {how.map(({ key, icon: Icon, title, description, badge }, index) => (
             <FadeUp key={key} delay={0.1 + index * 0.1} variant="slideRight">
-              <div className="group border border-border relative h-full flex flex-col bg-background/40 drop-shadow-2xl rounded-lg transition-all duration-500 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.1)] hover:-translate-y-0.5">
+              <div className="group border border-border relative h-full flex flex-col bg-background drop-shadow-2xl rounded-lg transition-all duration-500 hover:border-primary/30 hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.1)] hover:-translate-y-0.5">
                 <ShineBorder
                   shineColor={["#855CF5", "#C091F0", "#8F38E7"]}
                   duration={18}
                   className="opacity-80"
                 />
-                <div className="flex flex-col md:flex-row items-start gap-4 md:gap-6 ">
+                <div
+                  className="
+          pointer-events-none absolute inset-x-0 top-0 -z-10 h-full
+          bg-[radial-gradient(var(--color-primary)_1px,transparent_1px)]
+          opacity-40
+          bg-size-[16px_16px]
+          mask-[linear-gradient(to_left,black_0%,black_10%,transparent_60%)]
+        "
+                />
+                <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6 ">
                   {/* Content */}
                   <div className="flex-1 flex flex-col justify-between min-h-50 md:min-h-80 p-3 md:p-5 m-4 md:m-6">
                     <FadeUp delay={0.1}>
@@ -131,8 +151,11 @@ export default function HowItWorks() {
                       </FadeUp>
                     </div>
                   </div>
-                  <div className="w-full md:w-auto md:min-w-120 h-48 md:h-80 relative overflow-hidden rounded">
-                    <Ripple mainCircleSize={50} />
+                  <div className="hidden md:block w-full md:w-auto md:min-w-120 h-48 md:h-full relative overflow-hidden rounded flex items-center justify-center">
+                    {/* <Ripple mainCircleSize={50} /> */}
+                    {key == "step1" && <AnimatedBeamMultipleOutputDemo />}
+                    {key == "step3" && <SmartPrioritization />}
+                    {/* {key == "step4" && <GuidedInvestigation />} */}
                   </div>
                 </div>
               </div>

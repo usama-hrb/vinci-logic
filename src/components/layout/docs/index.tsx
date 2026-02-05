@@ -206,8 +206,8 @@ export function DocsLayout({
           )}
         </SidebarContent>
         <SidebarDrawer>
-          <div className="flex flex-col gap-3 p-4 pb-2">
-            <div className="flex text-fd-muted-foreground items-center gap-1.5">
+          <div className="flex flex-col gap-2 sm:gap-3 p-3 sm:p-4 pb-2">
+            <div className="flex text-fd-muted-foreground items-center gap-1 sm:gap-1.5">
               <div className="flex flex-1">
                 {iconLinks.map((item, i) => (
                   <LinkItem
@@ -217,7 +217,7 @@ export function DocsLayout({
                       buttonVariants({
                         size: "icon-sm",
                         color: "ghost",
-                        className: "p-2",
+                        className: "p-2 min-h-[40px] min-w-[40px]",
                       }),
                     )}
                     aria-label={item.label}
@@ -228,7 +228,7 @@ export function DocsLayout({
               </div>
               {i18n && (
                 <LanguageToggle>
-                  <Languages className="size-4.5" />
+                  <Languages className="size-4 sm:size-4.5" />
                   <LanguageToggleText />
                 </LanguageToggle>
               )}
@@ -241,7 +241,7 @@ export function DocsLayout({
                   buttonVariants({
                     color: "ghost",
                     size: "icon-sm",
-                    className: "p-2",
+                    className: "p-2 min-h-[40px] min-w-[40px]",
                   }),
                 )}
               >
@@ -252,7 +252,7 @@ export function DocsLayout({
             {banner}
           </div>
           {viewport}
-          <div className="flex flex-col border-t p-4 pt-2 empty:hidden">
+          <div className="flex flex-col border-t p-3 sm:p-4 pt-2 empty:hidden">
             {footer}
           </div>
         </SidebarDrawer>
@@ -269,36 +269,42 @@ export function DocsLayout({
               (nav.component ?? (
                 <LayoutHeader
                   id="nd-subnav"
-                  className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center ps-4 pe-2.5 border-b transition-colors backdrop-blur-sm h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-fd-background/80"
+                  className="[grid-area:header] sticky top-(--fd-docs-row-1) z-30 flex items-center px-3 sm:px-4 md:ps-4 md:pe-2.5 border-b transition-colors backdrop-blur-sm h-(--fd-header-height) md:hidden max-md:layout:[--fd-header-height:--spacing(14)] data-[transparent=false]:bg-fd-background/80"
                 >
                   {renderTitleNav(nav, {
-                    className: "inline-flex items-center gap-2.5 font-semibold",
+                    className:
+                      "inline-flex items-center gap-2 font-semibold text-sm sm:text-base truncate",
                   })}
-                  <div className="flex-1">{nav.children}</div>
-                  {searchToggle.enabled !== false &&
-                    (searchToggle.components?.sm ?? (
-                      <SearchToggle className="p-2" hideIfDisabled />
-                    ))}
-                  {sidebarEnabled && (
-                    <SidebarTrigger
-                      className={cn(
-                        buttonVariants({
-                          color: "ghost",
-                          size: "icon-sm",
-                          className: "p-2",
-                        }),
-                      )}
-                    >
-                      <SidebarIcon />
-                    </SidebarTrigger>
-                  )}
+                  <div className="flex-1 min-w-0">{nav.children}</div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {searchToggle.enabled !== false &&
+                      (searchToggle.components?.sm ?? (
+                        <SearchToggle
+                          className="p-2 min-h-[44px] min-w-[44px]"
+                          hideIfDisabled
+                        />
+                      ))}
+                    {sidebarEnabled && (
+                      <SidebarTrigger
+                        className={cn(
+                          buttonVariants({
+                            color: "ghost",
+                            size: "icon-sm",
+                            className: "p-2 min-h-[44px] min-w-[44px]",
+                          }),
+                        )}
+                      >
+                        <SidebarIcon className="size-5" />
+                      </SidebarTrigger>
+                    )}
+                  </div>
                 </LayoutHeader>
               ))}
             {sidebarEnabled && sidebar()}
             {tabMode === "top" && tabs.length > 0 && (
               <LayoutTabs
                 options={tabs}
-                className="z-10 bg-fd-background border-b px-6 pt-3 xl:px-8 max-md:hidden"
+                className="z-10 bg-fd-background border-b px-4 sm:px-6 md:px-8 pt-3 max-md:hidden"
               />
             )}
             {children}

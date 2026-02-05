@@ -33,7 +33,7 @@ export default function Problem() {
   ];
 
   return (
-    <section className="relative py-20 overflow-hidden">
+    <section className="relative py-14 md:py-20 overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 gradient-bg">
         <svg xmlns="http://www.w3.org/2000/svg">

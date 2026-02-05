@@ -1,8 +1,8 @@
 {
   "hero": {
-    "badge": "Plateforme d’opérations de sécurité",
-    "title": "Détection et réponse en tant que code pour les SOC modernes",
-    "description": "Implémentez des workflows déterministes, triez les alertes avec une IA agentique et exécutez la réponse directement là où se trouvent vos données.",
+    "badge": "Plateforme SIEM native IA",
+    "title": "Le SIEM est Renaît Vive Vinci Logic.",
+    "description": "La plateforme SIEM native IA qui élimine le bruit. Menaces réelles. Zéro fatigue. 90% de faux positifs en moins.",
     "primaryCta": "Demander une démo",
     "secondaryCta": "Voir la documentation",
     "video": "Voir Vinci en action"
@@ -12,46 +12,82 @@
     "solutions": "Solutions",
     "resources": "Ressources",
     "docs": "Documentation",
-    "pricing": "Tarification",
+    "pricing": "Tarifs",
     "login": "Connexion",
     "demo": "Demander une démo"
   },
   "why": {
-    "why_title": "Pourquoi Vinci Logic ?",
-    "why_subtitle": "Une plateforme moderne d’opérations de sécurité, conçue pour l’échelle, la clarté et le contrôle.",
+    "why_title": "Une détection qui réfléchit. Un triage qui fonctionne.",
+    "why_subtitle": "Vinci Logic n’est pas un tableau de bord de plus sur vos problèmes. C’est une refonte fondamentale du fonctionnement des opérations de sécurité — conçue dès le départ avec l’IA au cœur du système.",
     "cards": {
       "code": {
-        "title": "Détection et réponse en tant que code",
-        "description": "Définissez, versionnez et déployez les règles de détection et de réponse comme du logiciel — cohérent, auditable et évolutif."
+        "title": "Détection et réponse sous forme de code",
+        "description": "Définissez, versionnez et déployez les logiques de détection et de réponse comme du logiciel — cohérentes, auditables et évolutives."
       },
       "data": {
-        "title": "S’exécute là où vivent vos données",
-        "description": "Exécutez la logique de détection directement sur OpenSearch, ClickHouse, Spark et plus — sans duplication ni dépendance."
+        "title": "Exécute là où vivent vos données",
+        "description": "Exécutez la logique de détection directement sur OpenSearch, ClickHouse, Spark et plus encore — aucune duplication de données, aucun verrouillage."
       },
       "workflow": {
-        "title": "Workflows déterministes, assistance IA",
-        "description": "Des workflows déterministes gèrent les incidents de bout en bout, tandis que l’IA assiste la qualification, l’investigation et la réponse."
+        "title": "Global et distribué par conception",
+        "description": "Exécutez la détection et la réponse directement là où se trouvent vos données, à travers régions et environnements, sans duplication ni dépendance."
       }
     }
   },
   "problems": {
-    "problems_title": "Security teams are overwhelmed",
-    "problems_subtitle": "Modern SOCs face challenges that legacy tools simply can't solve.",
+    "problems_title": "L’ancien modèle SIEM a échoué pour votre SOC.",
+    "problems_subtitle": "Les SOC modernes font face à des défis que les outils hérités ne peuvent tout simplement pas résoudre.",
     "cards": {
       "scale": {
-        "title": "Scale Breaks Legacy Architectures",
-        "description": "Alert volume and data growth exceed the limits of centralized ingestion and manual triage models."
+        "title": "Surcharge d’alertes",
+        "description": "Submergé par des milliers de notifications sans issue. Votre SOC ne peut pas suivre le rythme du bruit."
       },
       "noise": {
-        "title": "Too Much Noise, Not Enough Signal",
-        "description": "Static rules generate excessive alerts, forcing teams to throttle detections and accept blind spots."
+        "title": "Fatigue des faux positifs",
+        "description": "Vos meilleurs analystes s’épuisent à poursuivre des menaces fantômes. Les vraies menaces se perdent dans le bruit."
       },
       "automation": {
-        "title": "Automation Without Control Fails",
-        "description": "Brittle SOAR playbooks are complex to maintain and difficult to trust during high-risk incidents."
+        "title": "Investigations lentes",
+        "description": "Des heures passées à corréler des données entre des outils — ce qui devrait prendre quelques secondes. Le temps est l’ennemi."
+      },
+      "blindSpots": {
+        "title": "Angles morts",
+        "description": "Prolifération des logs entre clouds, endpoints et SaaS — sans vue unifiée de votre surface d’attaque."
       }
     },
-    "problems_badge": "The SOC Reality",
-    "problems_header": "Lorem Ipsum is simply dummy text of the printing and typesetting industry."
+    "problems_badge": "La réalité du SOC",
+    "problems_header": "Votre SIEM est cassé. Vous le savez.",
+    "problems_disc": "Les SIEM traditionnels génèrent des milliers d’alertes. Vos analystes en traitent des centaines. Les vraies menaces passent entre les mailles du filet. La plupart des équipes de sécurité ignorent 70 % des alertes faute de ressources pour toutes les investiguer."
+  },
+  "how": {
+    "how_title": "Comment fonctionne Vinci Logic",
+    "how_subtitle": "Du log à la résolution en quelques millisecondes",
+    "cards": {
+      "step1": {
+        "badge": "Étape 1",
+        "title": "Ingestion unifiée",
+        "description": "Connectez l’ensemble de votre stack en quelques minutes. Cloud, on-prem, SaaS, endpoints — Vinci Logic normalise et enrichit automatiquement les données via plus de 100 intégrations."
+      },
+      "step2": {
+        "badge": "Étape 2",
+        "title": "Détection comportementale",
+        "description": "Les règles détectent les menaces connues. L’analyse comportementale détecte le reste. Notre moteur combine règles signatures, détection d’anomalies par ML et renseignement sur les menaces pour une couverture complète."
+      },
+      "step3": {
+        "badge": "Étape 3",
+        "title": "Priorisation intelligente",
+        "description": "Toutes les alertes ne méritent pas votre attention. Vinci Logic évalue chaque détection selon la criticité des actifs, le contexte de menace et la progression dans la kill chain — pour savoir toujours où regarder en priorité."
+      },
+      "step4": {
+        "badge": "Étape 4",
+        "title": "Investigation guidée",
+        "description": "Quand le jugement humain est nécessaire, nous l’accélérons. Preuves pré-corrélées, vues chronologiques et analyse assistée par IA réduisent le temps d’investigation de plusieurs heures à quelques minutes."
+      },
+      "step5": {
+        "badge": "Étape 5",
+        "title": "Réponse orchestrée",
+        "description": "Bouclez la réponse. Déclenchez un confinement automatisé, enrichissez les incidents avec du contexte et maintenez des pistes d’audit — le tout depuis une interface unifiée."
+      }
+    }
   }
 }
